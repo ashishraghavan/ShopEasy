@@ -1,17 +1,25 @@
 package com.shopping.shopeasy.activity;
 
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ProgressBar;
 
 import com.shopping.shopeasy.R;
+import com.shopping.shopeasy.authorization.AuthorizationDelegate;
+import com.shopping.shopeasy.authorization.AuthorizationFragment;
+import com.shopping.shopeasy.identity.User;
+import com.shopping.shopeasy.util.ShopException;
 
 public class SplashActivity extends AppCompatActivity {
+
+    private ProgressBar progressBar;
+    private AuthorizationDelegate authDelegate;
+    private FrameLayout frameLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -20,12 +28,34 @@ public class SplashActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
+        //Check if authorization has already been finished for this application.
+        progressBar = (ProgressBar)findViewById(R.id.authorization_progress);
+        frameLayout = (FrameLayout)findViewById(R.id.authorization_container);
+        authDelegate = AuthorizationDelegate.getInstance(this);
+        if ( !authDelegate.hasAuthorized() ) {
+            progressBar.setVisibility(View.GONE);
+            frameLayout.setVisibility(View.VISIBLE);
+            //show the list of authorization oauth endpoints that are available
+            final AuthorizationFragment authorizationFragment = AuthorizationFragment.newInstance();
+            getSupportFragmentManager().beginTransaction().replace(R.id.authorization_container,
+                    authorizationFragment,AuthorizationFragment.class.getSimpleName()).commit();
+            return;
+        }
+
+        //Do a login
+        progressBar.setVisibility(View.VISIBLE);
+        frameLayout.setVisibility(View.GONE);
+        authDelegate.checkAndAuthorize(new AuthorizationDelegate.OnAuthorizationFinished() {
             @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+            public void onAuthorizationSucceeded(User user) {
+                //TODO Do things when authorization succeeds.
+                progressBar.setVisibility(View.GONE);
+            }
+
+            @Override
+            public void onAuthorizationFailed(ShopException shopException) {
+                //TODO Do things when authorization fails.
+                progressBar.setVisibility(View.GONE);
             }
         });
     }

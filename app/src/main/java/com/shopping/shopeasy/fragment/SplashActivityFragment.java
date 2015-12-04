@@ -13,7 +13,10 @@ import com.shopping.shopeasy.R;
  */
 public class SplashActivityFragment extends Fragment {
 
-    public SplashActivityFragment() {
+    public SplashActivityFragment() {}
+
+    public static SplashActivityFragment newInstance() {
+        return new SplashActivityFragment();
     }
 
     @Override

@@ -3,4 +3,12 @@
     <color name="colorPrimary">#3F51B5</color>
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#FF4081</color>
+    <!-- Google card view background color -->
+    <color name="google_cardview_background">#dd4b39</color>
+    <!-- Facebook card view background color -->
+    <color name="facebook_cardview_background">#3b5998</color>
+    <!-- LinkedIn card view background color -->
+    <color name="linkedin_cardview_background">#0077B5</color>
+    <!-- Microsoft card view background color -->
+    <color name="microsoft_cardview_background">#7cbb00</color>
 </resources>

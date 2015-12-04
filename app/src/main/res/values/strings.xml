@@ -64,4 +64,7 @@
     <string name="facebook_signIn">Facebook</string>
     <string name="linkedin_signIn">LinkedIn</string>
     <string name="microsoft_signIn">Microsoft</string>
+
+    <string name="app_facebook_id">963307897090232</string>
+    <string name="app_facebook_secret">5b406fcf65e4b7732b3c0cf62f02d03f</string>
 </resources>

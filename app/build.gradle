@@ -6,10 +6,11 @@ android {
 
     defaultConfig {
         applicationId "com.shopping.shopeasy"
-        minSdkVersion 14
+        minSdkVersion 15
         targetSdkVersion 23
         versionCode 1
         versionName "1.0"
+        multiDexEnabled true
     }
     buildTypes {
         release {
@@ -54,4 +55,5 @@ dependencies {
     compile 'org.apache.commons:commons-lang3:3.0'
     compile 'commons-codec:commons-codec:1.9'
     compile 'com.squareup.picasso:picasso:2.3.4'
+    compile 'com.facebook.android:facebook-android-sdk:4.6.0'
 }

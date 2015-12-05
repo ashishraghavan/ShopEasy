@@ -11,4 +11,9 @@
     <color name="linkedin_cardview_background">#0077B5</color>
     <!-- Microsoft card view background color -->
     <color name="microsoft_cardview_background">#7cbb00</color>
+
+    <!-- Facebook colors -->
+    <color name="com_facebook_button_background_color_disabled">#bdc1c9</color>
+     <color name="com_facebook_button_background_color_pressed">#2f477a</color>
+    <color name="com_facebook_button_background_color">#415dae</color>
 </resources>

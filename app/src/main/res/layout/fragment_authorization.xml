@@ -33,13 +33,15 @@
                 android:maxHeight="80dp"
                 android:layout_height="wrap_content" />
 
-            <com.facebook.login.widget.LoginButton
-                android:id="@+id/authButton"
+            <ImageView
+                android:src="@drawable/fb_logo_blue"
+                android:id="@+id/fb_auth_logo"
                 android:layout_marginTop="@dimen/card_view_margin_top"
                 android:maxHeight="80dp"
+                android:adjustViewBounds="true"
                 android:layout_width="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:layout_height="60dp" />
+                android:layout_height="wrap_content" />
 
         </LinearLayout>
     </ScrollView>

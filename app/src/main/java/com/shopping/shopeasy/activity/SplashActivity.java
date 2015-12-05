@@ -1,25 +1,32 @@
 package com.shopping.shopeasy.activity;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.FrameLayout;
+import android.widget.Button;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
+import android.widget.Toast;
 
 import com.shopping.shopeasy.R;
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
-import com.shopping.shopeasy.authorization.AuthorizationFragment;
-import com.shopping.shopeasy.identity.User;
+import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.util.ShopException;
 
-public class SplashActivity extends AppCompatActivity {
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class SplashActivity extends AppCompatActivity implements AuthorizationDelegate.OAuthCallback {
 
     private ProgressBar progressBar;
     private AuthorizationDelegate authDelegate;
-    private FrameLayout frameLayout;
+    private ScrollView mAuthProviderView;
+    private Button mRetryBtn;
+    private final AtomicInteger tries = new AtomicInteger(0);
+    private boolean maxRetryReached = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,32 +37,21 @@ public class SplashActivity extends AppCompatActivity {
 
         //Check if authorization has already been finished for this application.
         progressBar = (ProgressBar)findViewById(R.id.authorization_progress);
-        frameLayout = (FrameLayout)findViewById(R.id.authorization_container);
+        mAuthProviderView = (ScrollView)findViewById(R.id.auth_provider_scroll_view);
+        mRetryBtn = (Button)findViewById(R.id.retry_button);
         authDelegate = AuthorizationDelegate.getInstance(this);
-        if ( !authDelegate.hasAuthorized() ) {
-            progressBar.setVisibility(View.GONE);
-            frameLayout.setVisibility(View.VISIBLE);
-            //show the list of authorization oauth endpoints that are available
-            final AuthorizationFragment authorizationFragment = AuthorizationFragment.newInstance();
-            getSupportFragmentManager().beginTransaction().replace(R.id.authorization_container,
-                    authorizationFragment,AuthorizationFragment.class.getSimpleName()).commit();
-            return;
-        }
-
-        //Do a login
         progressBar.setVisibility(View.VISIBLE);
-        frameLayout.setVisibility(View.GONE);
-        authDelegate.checkAndAuthorize(new AuthorizationDelegate.OnAuthorizationFinished() {
-            @Override
-            public void onAuthorizationSucceeded(User user) {
-                //TODO Do things when authorization succeeds.
-                progressBar.setVisibility(View.GONE);
-            }
+        //Try authorizing.
+        //Register the oauth callback
+        authDelegate.registerOAuthCallback(this);
+        authDelegate.checkAndAuthorize();
 
+        //Set listener for retry button.
+        mRetryBtn.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onAuthorizationFailed(ShopException shopException) {
-                //TODO Do things when authorization fails.
-                progressBar.setVisibility(View.GONE);
+            public void onClick(View v) {
+                tries.incrementAndGet();
+                authDelegate.checkAndAuthorize();
             }
         });
     }
@@ -76,9 +72,47 @@ public class SplashActivity extends AppCompatActivity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            startActivity(new Intent(this,SettingsActivity.class));
             return true;
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+
+    @Override
+    public void onAuthorizationSucceeded(AuthToken authToken) {
+        //TODO Do things when authorization succeeds.
+        progressBar.setVisibility(View.GONE);
+        //Take the user to the Products activity.
+    }
+
+    @Override
+    public void onAuthorizationFailed(ShopException shopException) {
+        //TODO Do things when authorization fails.
+        //Depending on what caused the failure, we show the Retry button
+        //For example, if its a network time out exception, we show the
+        //retry button. Otherwise, we show the list of providers
+        //with a toast message informing the user why the authorization
+        //failed and provide them with options to authorize with a
+        //different federated identity provider.
+        progressBar.setVisibility(View.GONE);
+        if ( shopException.getErrorType() == ShopException.ErrorType.NETWORK_TIMEOUT ) {
+            //Show the retry button.
+            //If pressed ok, increment the no of tries.
+            if ( tries.get() >= 1 ) {
+                //Hide the retry button if visible
+                if ( mRetryBtn != null &&
+                        mRetryBtn.getVisibility() == View.VISIBLE ) {
+                    mRetryBtn.setVisibility(View.GONE);
+                    Toast.makeText(this,"Authorization Failed with provider. Please re-login again",
+                            Toast.LENGTH_LONG).show();
+                }
+            } else {
+                mRetryBtn.setVisibility(View.VISIBLE);
+                return;
+            }
+        }
+        mAuthProviderView.setVisibility(View.VISIBLE);
     }
 }

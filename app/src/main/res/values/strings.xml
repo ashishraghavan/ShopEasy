@@ -67,4 +67,8 @@
 
     <string name="app_facebook_id">963307897090232</string>
     <string name="app_facebook_secret">5b406fcf65e4b7732b3c0cf62f02d03f</string>
+    <string name="linkedin_auth_desc">Image for linkedIn authorization</string>
+    <string name="microsoft_auth_desc">Image for microsoft authorization</string>
+    <string name="facebook_content_desc">Image for facebook authorization</string>
+    <string name="retry">Retry</string>
 </resources>

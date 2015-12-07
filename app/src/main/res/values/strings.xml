@@ -71,4 +71,8 @@
     <string name="microsoft_auth_desc">Image for microsoft authorization</string>
     <string name="facebook_content_desc">Image for facebook authorization</string>
     <string name="retry">Retry</string>
+    <string name="google_auth_desc">Google auth desc</string>
+    <string name="cancel">Cancel</string>
+    <string name="title_activity_product_listing">ProductListingActivity</string>
+    <string name="yahoo_content_desc">Yahoo authorization desc</string>
 </resources>

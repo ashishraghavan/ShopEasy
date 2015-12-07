@@ -34,7 +34,7 @@
         android:layout_height="wrap_content"
         android:layout_below="@+id/toolbar"
         android:padding="@dimen/margin_medium"
-        android:visibility="gone">
+        android:visibility="visible">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -42,8 +42,19 @@
             android:layout_height="wrap_content">
 
             <ImageView
+                android:id="@+id/google_logo"
+                android:src="@drawable/btn_google_dark_normal"
+                android:layout_width="wrap_content"
+                android:adjustViewBounds="true"
+                android:layout_gravity="center_horizontal"
+                android:maxHeight="80dp"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/google_auth_desc"/>
+
+            <ImageView
                 android:id="@+id/linkedin_logo"
                 android:src="@drawable/linkedinlogo"
+                android:layout_marginTop="@dimen/margin_medium"
                 android:layout_width="wrap_content"
                 android:adjustViewBounds="true"
                 android:layout_gravity="center_horizontal"
@@ -72,6 +83,17 @@
                 android:layout_gravity="center_horizontal"
                 android:layout_height="wrap_content"
                 android:contentDescription="@string/facebook_content_desc"/>
+
+            <ImageView
+                android:src="@drawable/yahoo_logo"
+                android:id="@+id/yahoo_auth_logo"
+                android:layout_marginTop="@dimen/card_view_margin_top"
+                android:maxHeight="80dp"
+                android:adjustViewBounds="true"
+                android:layout_width="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/yahoo_content_desc"/>
 
         </LinearLayout>
 

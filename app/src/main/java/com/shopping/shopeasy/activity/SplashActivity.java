@@ -15,11 +15,12 @@ import android.widget.Toast;
 import com.shopping.shopeasy.R;
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.identity.AuthToken;
+import com.shopping.shopeasy.identity.EAuthenticationProvider;
 import com.shopping.shopeasy.util.ShopException;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class SplashActivity extends AppCompatActivity implements AuthorizationDelegate.OAuthCallback {
+public class SplashActivity extends AppCompatActivity implements AuthorizationDelegate.OAuthCallback,View.OnClickListener {
 
     private ProgressBar progressBar;
     private AuthorizationDelegate authDelegate;
@@ -39,19 +40,25 @@ public class SplashActivity extends AppCompatActivity implements AuthorizationDe
         progressBar = (ProgressBar)findViewById(R.id.authorization_progress);
         mAuthProviderView = (ScrollView)findViewById(R.id.auth_provider_scroll_view);
         mRetryBtn = (Button)findViewById(R.id.retry_button);
+        findViewById(R.id.fb_auth_logo).setOnClickListener(this);
+        findViewById(R.id.microsoft_logo).setOnClickListener(this);
+        findViewById(R.id.google_logo).setOnClickListener(this);
+        findViewById(R.id.linkedin_logo).setOnClickListener(this);
         authDelegate = AuthorizationDelegate.getInstance(this);
         progressBar.setVisibility(View.VISIBLE);
         //Try authorizing.
         //Register the oauth callback
         authDelegate.registerOAuthCallback(this);
-        authDelegate.checkAndAuthorize();
-
+        authDelegate.checkForAuthorization();
         //Set listener for retry button.
         mRetryBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 tries.incrementAndGet();
-                authDelegate.checkAndAuthorize();
+                if ( tries.intValue() == 1) {
+                    maxRetryReached = true;
+                }
+                authDelegate.checkForAuthorization();
             }
         });
     }
@@ -72,7 +79,6 @@ public class SplashActivity extends AppCompatActivity implements AuthorizationDe
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
-            startActivity(new Intent(this,SettingsActivity.class));
             return true;
         }
 
@@ -82,9 +88,11 @@ public class SplashActivity extends AppCompatActivity implements AuthorizationDe
 
     @Override
     public void onAuthorizationSucceeded(AuthToken authToken) {
-        //TODO Do things when authorization succeeds.
+        //TODO Do things when authorization succeeds. Check for validity of the auth token.
         progressBar.setVisibility(View.GONE);
         //Take the user to the Products activity.
+        final Intent intent = new Intent(this,ProductListingActivity.class);
+        startActivity(intent);
     }
 
     @Override
@@ -100,7 +108,7 @@ public class SplashActivity extends AppCompatActivity implements AuthorizationDe
         if ( shopException.getErrorType() == ShopException.ErrorType.NETWORK_TIMEOUT ) {
             //Show the retry button.
             //If pressed ok, increment the no of tries.
-            if ( tries.get() >= 1 ) {
+            if ( maxRetryReached ) {
                 //Hide the retry button if visible
                 if ( mRetryBtn != null &&
                         mRetryBtn.getVisibility() == View.VISIBLE ) {
@@ -114,5 +122,32 @@ public class SplashActivity extends AppCompatActivity implements AuthorizationDe
             }
         }
         mAuthProviderView.setVisibility(View.VISIBLE);
+    }
+
+
+    /**
+     * Called when a view has been clicked.
+     *
+     * @param v The view that was clicked.
+     */
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.google_logo:
+                authDelegate.setProvider(EAuthenticationProvider.GOOGLE);
+                break;
+            case R.id.microsoft_logo:
+                authDelegate.setProvider(EAuthenticationProvider.MICROSOFT);
+                break;
+            case R.id.linkedin_logo:
+                authDelegate.setProvider(EAuthenticationProvider.LINKEDIN);
+                break;
+            case R.id.fb_auth_logo:
+                authDelegate.setProvider(EAuthenticationProvider.FACEBOOK);
+                break;
+            default:
+                throw new RuntimeException("Unexpected click event on authorization logo detected.");
+        }
+        authDelegate.doAuthorize();
     }
 }

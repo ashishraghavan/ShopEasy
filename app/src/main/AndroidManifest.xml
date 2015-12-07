@@ -2,17 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.shopping.shopeasy" >
 
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
+        android:name=".application.ShopEasyApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:name=".application.ShopEasyApplication"
         android:supportsRtl="true"
         android:theme="@style/AppTheme" >
-
         <meta-data
             android:name="com.facebook.sdk.ApplicationId"
             android:value="@string/app_facebook_id" />
@@ -27,13 +26,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
-            android:name="com.facebook.FacebookActivity"
-            android:label="@string/app_name"
-            android:screenOrientation="portrait" />
-        <activity
-            android:name=".activity.SettingsActivity"
-            android:label="@string/title_activity_settings" >
+            android:name=".activity.ProductListingActivity"
+            android:label="@string/title_activity_product_listing"
+            android:theme="@style/AppTheme" >
         </activity>
     </application>
 

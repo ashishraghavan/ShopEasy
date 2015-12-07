@@ -3,8 +3,11 @@ package com.shopping.shopeasy.authorization;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Point;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -29,8 +32,11 @@ import com.shopping.shopeasy.authorization.module.GoogleAuthSupport;
 import com.shopping.shopeasy.authorization.module.LinkedInAuthSupport;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.identity.EAuthenticationProvider;
+import com.shopping.shopeasy.util.Constants;
 import com.shopping.shopeasy.util.ShopException;
 import com.shopping.shopeasy.util.Utils;
+
+import java.util.Arrays;
 
 public class AuthorizationDelegate {
 
@@ -81,11 +87,90 @@ public class AuthorizationDelegate {
     public void checkForAuthorization(final @NonNull OAuthCallback oAuthCallback) {
         this.oAuthCallback = oAuthCallback;
         //Do actual login.
-        if ( hasAuthorized() ) {
-            //build the currently authorized user and call
-            oAuthCallback.onAuthorizationSucceeded(null);
-            return;
-        }
+
+        new AsyncTask<Void,Void,AuthToken>() {
+
+            /**
+             * Override this method to perform a computation on a background thread. The
+             * specified parameters are the parameters passed to {@link #execute}
+             * by the caller of this task.
+             * <p/>
+             * This method can call {@link #publishProgress} to publish updates
+             * on the UI thread.
+             *
+             * @param params The parameters of the task.
+             * @return A result, defined by the subclass of this task.
+             * @see #onPreExecute()
+             * @see #onPostExecute
+             * @see #
+             *
+             * If the preference {@link Constants#AUTH_PREFERENCE} has a valid non-empty
+             * value, then the user has already authorized an application.
+             * Check if the token has expired. Depending on what the provider is,
+             * get the refresh token.
+             */
+            @Override
+            protected AuthToken doInBackground(Void... params) {
+
+                final SharedPreferences authPreferences = context.
+                        getSharedPreferences(Constants.AUTH_PREFERENCE, 0);
+                final String providerStr = authPreferences.getString(Constants.AUTH_PROVIDER,null);
+                final String tokenJSON = authPreferences.getString(Constants.AUTH_TOKEN,null);
+
+                if ( Strings.isNullOrEmpty(providerStr) ||
+                        Strings.isNullOrEmpty(tokenJSON) ) {
+                    Log.e(TAG,"Invalid or null token or provider.");
+                    return null;
+                }
+
+                final EAuthenticationProvider provider = EAuthenticationProvider.valueOf(providerStr);
+                final AuthToken authToken = Utils.getSafeMapper().convertValue(tokenJSON,AuthToken.class);
+                final AuthSupport authSupport;
+                if ( provider == EAuthenticationProvider.GOOGLE) {
+                    authSupport = new GoogleAuthSupport();
+                } else if ( provider == EAuthenticationProvider.FACEBOOK) {
+                    authSupport = new FacebookAuthSupport();
+                } else if ( provider == EAuthenticationProvider.LINKEDIN) {
+                    authSupport = new LinkedInAuthSupport();
+                } else {
+                    Log.e(TAG,"Invalid value of auth provider. " +
+                            "Must be one of ["+ Arrays.asList(EAuthenticationProvider.values())+"]");
+                    return null;
+                }
+
+                try {
+                    if (!authSupport.verifyToken(authToken)) {
+                        //Token verification failed. Refresh this token.
+                        final AuthToken refreshedToken = authSupport.refreshToken(authToken);
+                        //Just be sure, the original token and the refreshed token won't match.
+                        if ( !authToken.getAccess_token().equalsIgnoreCase(refreshedToken.getAccess_token())) {
+                            Log.d(TAG,"Original - "+authToken.getAccess_token()+" and refreshed token - "
+                                    +refreshedToken.getAccess_token()+" does not match");
+                            return refreshedToken;
+                        }
+                    };
+
+                    Log.i(TAG,"Token is valid and will expire at "+authToken.getExpires_in());
+                    return authToken;
+                } catch (Exception e) {
+                    Log.e(TAG,"Invalid/null auth token from token verification call");
+                }
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(AuthToken result) {
+                super.onPostExecute(result);
+                if ( result != null && !Strings.isNullOrEmpty(result.getAccess_token())) {
+                    //Token is valid.
+                    oAuthCallback.onAuthorizationSucceeded(result);
+                } else {
+                    oAuthCallback.onAuthorizationFailed(new ShopException.
+                            ShopExceptionBuilder().message("Invalid/Expired or null token").build());
+                }
+            }
+
+        }.execute();
 
         final ShopException shopException = new ShopException("Test Error Message",
                 ImmutableMap.<String,Object>builder()
@@ -106,14 +191,13 @@ public class AuthorizationDelegate {
         final Bundle bundle = new Bundle();
         bundle.putParcelable(AuthorizationDialogFragment.AUTH_SUPPORT,getAuthSupport());
         bundle.putParcelable(AuthorizationDialogFragment.PROVIDER,getProvider());
+        if ( provider == EAuthenticationProvider.GOOGLE) {
+            handleGoogleAuthentication();
+            return;
+        }
         final AuthorizationDialogFragment authorizationDialogFragment = AuthorizationDialogFragment.newInstance(bundle);
         authorizationDialogFragment.show(((AppCompatActivity) context).getSupportFragmentManager().beginTransaction(),
                 AuthorizationDialogFragment.class.getSimpleName());
-    }
-
-    private boolean hasAuthorized() {
-        //Logic to check if we have a valid access token.
-        return false;
     }
 
     public interface OAuthCallback {
@@ -190,6 +274,8 @@ public class AuthorizationDelegate {
             mCancelBtn = (FloatingActionButton)view.findViewById(R.id.btn_cancel);
             progressBar = (ProgressBar)view.findViewById(R.id.webview_progress);
             webView = (WebView)view.findViewById(R.id.authorization_webview);
+            webView.clearCache(true);
+            webView.clearHistory();
             final WebSettings webSettings = webView.getSettings();
             webSettings.setJavaScriptEnabled(true);
             webView.setWebViewClient(new MyWebViewClient());
@@ -205,7 +291,6 @@ public class AuthorizationDelegate {
                     dismiss();
                 }
             });
-
             webView.loadUrl(authSupport.getTokenEndpoint());
         }
 
@@ -245,9 +330,8 @@ public class AuthorizationDelegate {
                 if ( url.startsWith(authSupport.getRedirectUrl()) ) {
                     final String uriPart = url.substring(url.indexOf(ACCESS_TOKEN));
                     if ( !Strings.isNullOrEmpty(uriPart) ) {
-                        //TODO Verify token
                         final AuthToken authToken = Utils.constructAuthToken(uriPart);
-                        //TODO Write token to local database.
+                        Utils.writeTokenToDatabase(authToken,getContext());
                         dismiss();
                         authCallback.onAuthorizationSucceeded(authToken);
                     }
@@ -269,5 +353,18 @@ public class AuthorizationDelegate {
     public interface TokenVerificationCallback {
         void onTokenVerified(final AuthToken authToken);
         void onTokenVerificationFailed(final ShopException shopException);
+    }
+
+    /**
+     * An interface to notify the caller that
+     * a token refresh request succeeded or failed.
+     */
+    public interface TokenRefreshCallback {
+        void onTokenRefreshed(final AuthToken authToken);
+        void onTokenRefreshFailed(final ShopException shopException);
+    }
+
+    private void handleGoogleAuthentication() {
+        context.startActivity(new Intent(context,GoogleSignInActivity.class));
     }
 }

@@ -26,10 +26,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".activity.ProductListingActivity"
             android:label="@string/title_activity_product_listing"
+            android:theme="@style/AppTheme" >
+        </activity>
+        <activity
+            android:name=".authorization.GoogleSignInActivity"
+            android:label="@string/title_activity_google_sign_in"
             android:theme="@style/AppTheme" >
         </activity>
     </application>

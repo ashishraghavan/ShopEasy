@@ -1,25 +1,46 @@
 package com.shopping.shopeasy.util;
 
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.sqlite.SQLiteDatabase;
+import android.os.Build;
 import android.support.annotation.NonNull;
+import android.util.Base64;
 import android.util.Log;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
+import com.shopping.shopeasy.database.ShopDBHelper;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.network.HttpParam;
+
+import org.apache.commons.lang3.math.NumberUtils;
 
 import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.PBEParameterSpec;
+
 public class Utils {
 
     private static final String TAG = Utils.class.getSimpleName();
+    public static final String UTF8 = "utf-8";
+    private static final char[] secretString = Constants.SECRET.toCharArray();
     public static final ObjectMapper safeMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES,false)
             .configure(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES,false)
             .configure(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS,false)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
+
+    public static ObjectMapper getSafeMapper() {
+        return safeMapper;
+    }
+
     @SuppressWarnings("unchecked")
     public static String appendParams(@NonNull List<HttpParam> params) {
         StringBuilder query = new StringBuilder();
@@ -97,5 +118,73 @@ public class Utils {
         }
 
         return safeMapper.convertValue(resultQueryMap,AuthToken.class);
+    }
+
+    public static String encrypt(String value) {
+        try {
+            final byte[] bytes = value !=null ? value.getBytes(UTF8) : new byte[0];
+            SecretKeyFactory keyFactory = SecretKeyFactory.getInstance("PBEWithMD5AndDES");
+            SecretKey key = keyFactory.generateSecret(new PBEKeySpec(secretString));
+            Cipher pbeCipher = Cipher.getInstance("PBEWithMD5AndDES");
+            pbeCipher.init(Cipher.ENCRYPT_MODE,key,
+                    new PBEParameterSpec(Build.SERIAL.getBytes(UTF8),20));
+            return new String(Base64.encode(pbeCipher.doFinal(bytes), Base64.NO_WRAP),UTF8);
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static String decrypt(String value) {
+        try {
+            final byte[] bytes = value != null ? Base64.decode(value.getBytes(UTF8), Base64.DEFAULT) : new byte[0];
+            SecretKeyFactory keyFactory = SecretKeyFactory.getInstance("PBEWithMD5AndDES");
+            SecretKey key = keyFactory.generateSecret(new PBEKeySpec(secretString));
+            Cipher pbeCipher = Cipher.getInstance("PBEWithMD5AndDES");
+            pbeCipher.init(Cipher.DECRYPT_MODE,key,
+                    new PBEParameterSpec(Build.SERIAL.getBytes(UTF8),20));
+            return new String(pbeCipher.doFinal(bytes),UTF8);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Could not decrypt value. Value may be in plain text.");
+            return value;
+        }
+    }
+
+    public static void writeTokenToDatabase(final AuthToken authToken,
+                                            final Context context) {
+        final ShopDBHelper shopDBHelper = new ShopDBHelper(context);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final SQLiteDatabase db = shopDBHelper.getWritableDatabase();
+                final ContentValues cv = new ContentValues();
+                cv.put(ShopDBHelper.ACCESS_TOKEN,encrypt(authToken.getAccess_token()));
+                cv.put(ShopDBHelper.EXPIRES,authToken.getExpires_in());
+                cv.put(ShopDBHelper.REFRESH_TOKEN,authToken.getRefresh_token());
+                cv.put(ShopDBHelper.TIME_STAMP,authToken.getTokenObtainedTime());
+                cv.put(ShopDBHelper.TOKEN_TYPE,authToken.getToken_type());
+                final Map<String,Object> extras = authToken.getExtras();
+                if ( extras != null ) {
+                    try {
+                        final String extrasJSON = getSafeMapper().writeValueAsString(extras);
+                        cv.put(ShopDBHelper.EXTRAS,extrasJSON);
+                    } catch (Exception ignore){
+                        Log.e(TAG,"Failed to save token extra info to database");
+                    }
+                }
+                long newRowId;
+                newRowId = db.insert(ShopDBHelper.AUTH_TOKEN,null,cv);
+                if (NumberUtils.isNumber(String.valueOf(newRowId))) {
+                    Log.i(TAG,"Auth token successfully saved into the database");
+                } else {
+                    Log.e(TAG,"Failed to save auth token into database");
+                }
+            }
+        }).start();
+    }
+
+    public static void writeToPreferences(final AuthToken authToken) {
+
     }
 }

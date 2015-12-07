@@ -5,9 +5,9 @@ import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
-import java.util.List;
+import java.util.Map;
 
 /**
  * https://tools.ietf.org/html/rfc6749#section-4.3.3
@@ -31,7 +31,7 @@ public class AuthToken implements Parcelable {
     private Long expires_in;
     private String token_type;
     private String refresh_token;
-    private List<Object> parameterList;
+    private Map<String, Object> extras;
     private boolean expired;
 
     public AuthToken(){}
@@ -41,12 +41,12 @@ public class AuthToken implements Parcelable {
                      @Nullable final Long tokenObtainedTime,
                      @NonNull final String token_type,
                      @Nullable final String refresh_token,
-                     @Nullable final List<Object> parameterList) {
+                     @Nullable final Map<String, Object> extras) {
         this.access_token = access_token;
         this.expires_in = expires_in;
         this.token_type = token_type;
         this.refresh_token = refresh_token;
-        this.parameterList = parameterList;
+        this.extras = extras;
         this.tokenObtainedTime = tokenObtainedTime;
     }
 
@@ -90,12 +90,12 @@ public class AuthToken implements Parcelable {
         this.refresh_token = refresh_token;
     }
 
-    public List<Object> getParameterList() {
-        return parameterList;
+    public Map<String, Object> getExtras() {
+        return extras;
     }
 
-    public void setParameterList(List<Object> parameterList) {
-        this.parameterList = parameterList;
+    public void setExtras(Map<String, Object> extras) {
+        this.extras = extras;
     }
 
     public void setExpired(boolean expired) {
@@ -104,61 +104,6 @@ public class AuthToken implements Parcelable {
 
     public boolean isExpired() {
         return expired;
-    }
-
-    public class AuthTokenBuilder {
-
-        private String accessToken;
-        private Long tokenObtainedTime;
-        private Long expiresIn;
-        private String tokenType;
-        private String refreshToken;
-        private boolean expired;
-        private List<Object> parameterList;
-
-        public AuthTokenBuilder setAccessToken(final String accessToken) {
-            this.accessToken = accessToken;
-            return this;
-        }
-
-        public AuthTokenBuilder setTokenObtainedTime(final Long tokenObtainedTime) {
-            this.tokenObtainedTime = tokenObtainedTime;
-            return this;
-        }
-
-        public AuthTokenBuilder setExpiresIn(final Long expiresIn) {
-            this.expiresIn = expiresIn;
-            return this;
-        }
-
-        public AuthTokenBuilder setTokenType(final String tokenType) {
-            this.tokenType = tokenType;
-            return this;
-        }
-
-        public AuthTokenBuilder setRefreshToken(final String refreshToken) {
-            this.refreshToken = refreshToken;
-            return this;
-        }
-
-        public AuthTokenBuilder setParameterList(final List<Object> parameterList) {
-            this.parameterList = parameterList;
-            return this;
-        }
-
-        public AuthTokenBuilder setExpired(final boolean expired) {
-            this.expired = expired;
-            return this;
-        }
-
-        public AuthToken build() {
-            return new AuthToken(this.accessToken,
-                    this.expiresIn,
-                    this.tokenObtainedTime,
-                    this.tokenType,
-                    this.refreshToken,
-                    this.parameterList);
-        }
     }
 
     public static final Creator<AuthToken> CREATOR = new Creator<AuthToken>() {
@@ -196,7 +141,7 @@ public class AuthToken implements Parcelable {
         dest.writeString(token_type);
         dest.writeString(refresh_token);
         dest.writeByte((byte)(expired ? 1 : 0));
-        dest.writeList(parameterList);
+        dest.writeMap(extras);
     }
 
     public AuthToken(Parcel pc) {
@@ -206,10 +151,10 @@ public class AuthToken implements Parcelable {
         token_type = pc.readString();
         refresh_token = pc.readString();
         expired = pc.readByte() !=0;
-        if ( parameterList == null ) {
-            parameterList = Lists.newArrayList();
+        if ( extras == null ) {
+            extras = Maps.newHashMap();
         }
-        pc.readList(parameterList,AuthToken.class.getClassLoader());
+        pc.readMap(extras, AuthToken.class.getClassLoader());
     }
 
 

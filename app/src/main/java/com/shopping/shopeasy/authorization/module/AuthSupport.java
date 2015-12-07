@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.identity.AuthToken;
+import com.shopping.shopeasy.util.ShopException;
 
 import java.util.List;
 
@@ -37,5 +38,29 @@ public abstract class AuthSupport implements Parcelable {
      *                                  either passes or fails.
      */
     public abstract void verifyToken(final @NonNull AuthToken authToken,
-                                     final @NonNull AuthorizationDelegate.TokenVerificationCallback tokenVerificationCallback);
+                                     final AuthorizationDelegate.TokenVerificationCallback tokenVerificationCallback) throws ShopException;
+
+    /**
+     * A syncronous way of verifying if the auth token was valid.
+     * @param authToken
+     * @throws ShopException
+     */
+    public abstract boolean verifyToken(final @NonNull AuthToken authToken);
+
+    /**
+     * An asynchronous way of refreshing the auth token.
+     * The refreshed auth token will be written back to the
+     * Shared preferences.
+     * @param tokenRefreshCallback
+     */
+    public abstract void refreshToken(final @NonNull AuthToken authToken,
+                                      final @NonNull AuthorizationDelegate.TokenRefreshCallback tokenRefreshCallback);
+
+    /**
+     * A syncronous way of refreshing the token.
+     * @param authToken The token that needs to be refreshed
+     * @return {@link AuthToken} with the modified access_token value
+     * and the expires information.
+     */
+    public abstract AuthToken refreshToken(final @NonNull AuthToken authToken);
 }

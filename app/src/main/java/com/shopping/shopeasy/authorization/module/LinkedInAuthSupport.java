@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.identity.AuthToken;
+import com.shopping.shopeasy.util.ShopException;
 
 import java.util.List;
 
@@ -78,6 +79,42 @@ public class LinkedInAuthSupport extends AuthSupport {
     @Override
     public void verifyToken(@NonNull AuthToken authToken, @NonNull AuthorizationDelegate.TokenVerificationCallback tokenVerificationCallback) {
 
+    }
+
+    /**
+     * A syncronous way of verifying if the auth token was valid.
+     *
+     * @param authToken
+     * @throws ShopException
+     */
+    @Override
+    public boolean verifyToken(@NonNull AuthToken authToken) {
+        return true;
+    }
+
+    /**
+     * An asynchronous way of refreshing the auth token.
+     * The refreshed auth token will be written back to the
+     * Shared preferences.
+     *
+     * @param authToken
+     * @param tokenRefreshCallback
+     */
+    @Override
+    public void refreshToken(@NonNull AuthToken authToken, @NonNull AuthorizationDelegate.TokenRefreshCallback tokenRefreshCallback) {
+
+    }
+
+    /**
+     * A syncronous way of refreshing the token.
+     *
+     * @param authToken The token that needs to be refreshed
+     * @return {@link AuthToken} with the modified access_token value
+     * and the expires information.
+     */
+    @Override
+    public AuthToken refreshToken(@NonNull AuthToken authToken) {
+        return null;
     }
 
     /**

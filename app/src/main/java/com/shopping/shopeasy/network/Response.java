@@ -1,5 +1,9 @@
 package com.shopping.shopeasy.network;
 
+import android.support.annotation.NonNull;
+
+import com.shopping.shopeasy.util.Utils;
+
 import org.apache.http.HttpResponse;
 
 import java.io.InputStream;
@@ -50,7 +54,17 @@ public class Response {
 
     void initialize(final ResponseType responseType) {
         if ( responseType == ResponseType.STRING ) {
-
+            this.convertedEntity = this.responseEntity;
+        }
+        if ( responseType == ResponseType.INPUTSTREAM) {
+            this.convertedEntity = this.inputStream;
         }
     }
+
+
+    public <T> T getResponseAsType(final @NonNull Class<T> classType) throws Exception {
+        return Utils.getSafeMapper().readValue(this.responseEntity,classType);
+    }
+
+
 }

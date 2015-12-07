@@ -115,7 +115,7 @@ public class ServiceCall {
      * A builder class which allows easy initialization of
      * parameters required for a service call.
      */
-    public class ServiceCallBuilder {
+    public static class ServiceCallBuilder {
 
         private String mUrl;
         private EMethodType method;

@@ -83,18 +83,6 @@
                 android:layout_gravity="center_horizontal"
                 android:layout_height="wrap_content"
                 android:contentDescription="@string/facebook_content_desc"/>
-
-            <ImageView
-                android:src="@drawable/yahoo_logo"
-                android:id="@+id/yahoo_auth_logo"
-                android:layout_marginTop="@dimen/card_view_margin_top"
-                android:maxHeight="80dp"
-                android:adjustViewBounds="true"
-                android:layout_width="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_height="wrap_content"
-                android:contentDescription="@string/yahoo_content_desc"/>
-
         </LinearLayout>
 
     </ScrollView>

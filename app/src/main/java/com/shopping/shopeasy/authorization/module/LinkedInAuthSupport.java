@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.identity.AuthToken;
+import com.shopping.shopeasy.network.HttpParam;
 import com.shopping.shopeasy.util.ShopException;
 
 import java.util.List;
@@ -36,8 +37,72 @@ import java.util.List;
  */
 public class LinkedInAuthSupport extends AuthSupport {
 
+    /**
+     * A boolean flat indicating if a subclass requires a two step
+     * process to get the authorization token.
+     *
+     * @return
+     */
+    @Override
+    public boolean isTwoStepOAuth() {
+        return false;
+    }
+
+    /**
+     * A field which indicates which field in the redirect
+     * url is to be parsed to obtain the authorization code.
+     * Is read only if the oauth is a two step process.
+     *
+     * @return
+     */
+    @Override
+    public String getCodeField() {
+        return null;
+    }
+
+    /**
+     * When requesting a token through a web application path,
+     * often auth service providers will use a two step process.
+     * In step 1, the authorization code is retrieved. We parse the
+     * authorization code from the redirect url, use it to get the
+     * auth token using the token endpoint.
+     * Most often the token and code endpoints are the same.
+     *
+     * @return
+     */
+    @Override
+    public String getAuthorizationCodeEndpoint() {
+        return null;
+    }
+
     @Override
     public String getTokenEndpoint() {
+        return null;
+    }
+
+    /**
+     * Is read for two step auth providers.
+     * Since we would be calling an oauth token endpoint using
+     * POST call, the webview needs the post parameters in a
+     * byte array format.
+     *
+     * @param code
+     * @return
+     */
+    @Override
+    public byte[] getTokenByteParams(String code) {
+        return new byte[0];
+    }
+
+    /**
+     * Is read for two step auth providers where a list of
+     * {@link HttpParam} is used instead of a byte array.
+     *
+     * @param code
+     * @return
+     */
+    @Override
+    public List<HttpParam> getTokenParams(String code) {
         return null;
     }
 
@@ -114,6 +179,16 @@ public class LinkedInAuthSupport extends AuthSupport {
      */
     @Override
     public AuthToken refreshToken(@NonNull AuthToken authToken) {
+        return null;
+    }
+
+    @Override
+    public String getSuccessRedirectionEndpoint() {
+        return null;
+    }
+
+    @Override
+    public String getErrorRedirectionEndpoint() {
         return null;
     }
 

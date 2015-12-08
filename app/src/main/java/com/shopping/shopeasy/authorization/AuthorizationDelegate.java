@@ -3,7 +3,6 @@ package com.shopping.shopeasy.authorization;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Point;
@@ -14,6 +13,7 @@ import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,9 +22,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 import com.shopping.shopeasy.R;
 import com.shopping.shopeasy.authorization.module.AuthSupport;
 import com.shopping.shopeasy.authorization.module.FacebookAuthSupport;
@@ -32,6 +32,8 @@ import com.shopping.shopeasy.authorization.module.GoogleAuthSupport;
 import com.shopping.shopeasy.authorization.module.LinkedInAuthSupport;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.identity.EAuthenticationProvider;
+import com.shopping.shopeasy.network.Response;
+import com.shopping.shopeasy.network.ServiceCall;
 import com.shopping.shopeasy.util.Constants;
 import com.shopping.shopeasy.util.ShopException;
 import com.shopping.shopeasy.util.Utils;
@@ -114,7 +116,7 @@ public class AuthorizationDelegate {
 
                 final SharedPreferences authPreferences = context.
                         getSharedPreferences(Constants.AUTH_PREFERENCE, 0);
-                final String providerStr = authPreferences.getString(Constants.AUTH_PROVIDER,null);
+                final String providerStr = authPreferences.getString(Constants.AUTH_PROVIDER, null);
                 final String tokenJSON = authPreferences.getString(Constants.AUTH_TOKEN,null);
 
                 if ( Strings.isNullOrEmpty(providerStr) ||
@@ -123,22 +125,21 @@ public class AuthorizationDelegate {
                     return null;
                 }
 
-                final EAuthenticationProvider provider = EAuthenticationProvider.valueOf(providerStr);
-                final AuthToken authToken = Utils.getSafeMapper().convertValue(tokenJSON,AuthToken.class);
-                final AuthSupport authSupport;
-                if ( provider == EAuthenticationProvider.GOOGLE) {
-                    authSupport = new GoogleAuthSupport();
-                } else if ( provider == EAuthenticationProvider.FACEBOOK) {
-                    authSupport = new FacebookAuthSupport();
-                } else if ( provider == EAuthenticationProvider.LINKEDIN) {
-                    authSupport = new LinkedInAuthSupport();
-                } else {
-                    Log.e(TAG,"Invalid value of auth provider. " +
-                            "Must be one of ["+ Arrays.asList(EAuthenticationProvider.values())+"]");
-                    return null;
-                }
-
                 try {
+                    final EAuthenticationProvider provider = EAuthenticationProvider.valueOf(providerStr);
+                    final AuthToken authToken = Utils.getSafeMapper().readValue(tokenJSON, AuthToken.class);
+                    final AuthSupport authSupport;
+                    if ( provider == EAuthenticationProvider.GOOGLE) {
+                        authSupport = new GoogleAuthSupport();
+                    } else if ( provider == EAuthenticationProvider.FACEBOOK) {
+                        authSupport = new FacebookAuthSupport();
+                    } else if ( provider == EAuthenticationProvider.LINKEDIN) {
+                        authSupport = new LinkedInAuthSupport();
+                    } else {
+                        Log.e(TAG,"Invalid value of auth provider. " +
+                                "Must be one of ["+ Arrays.asList(EAuthenticationProvider.values())+"]");
+                        return null;
+                    }
                     if (!authSupport.verifyToken(authToken)) {
                         //Token verification failed. Refresh this token.
                         final AuthToken refreshedToken = authSupport.refreshToken(authToken);
@@ -154,8 +155,8 @@ public class AuthorizationDelegate {
                     return authToken;
                 } catch (Exception e) {
                     Log.e(TAG,"Invalid/null auth token from token verification call");
+                    return null;
                 }
-                return null;
             }
 
             @Override
@@ -166,17 +167,12 @@ public class AuthorizationDelegate {
                     oAuthCallback.onAuthorizationSucceeded(result);
                 } else {
                     oAuthCallback.onAuthorizationFailed(new ShopException.
-                            ShopExceptionBuilder().message("Invalid/Expired or null token").build());
+                            ShopExceptionBuilder().message("Invalid/Expired or null token").
+                            errorType(ShopException.ErrorType.INVALID_TOKEN).build());
                 }
             }
 
         }.execute();
-
-        final ShopException shopException = new ShopException("Test Error Message",
-                ImmutableMap.<String,Object>builder()
-                .put("Test Error Map Key","Test Error Map Value")
-        .build(), ShopException.ErrorType.TEST);
-        oAuthCallback.onAuthorizationFailed(shopException);
     }
 
     public void checkForAuthorization() {
@@ -191,10 +187,6 @@ public class AuthorizationDelegate {
         final Bundle bundle = new Bundle();
         bundle.putParcelable(AuthorizationDialogFragment.AUTH_SUPPORT,getAuthSupport());
         bundle.putParcelable(AuthorizationDialogFragment.PROVIDER,getProvider());
-        if ( provider == EAuthenticationProvider.GOOGLE) {
-            handleGoogleAuthentication();
-            return;
-        }
         final AuthorizationDialogFragment authorizationDialogFragment = AuthorizationDialogFragment.newInstance(bundle);
         authorizationDialogFragment.show(((AppCompatActivity) context).getSupportFragmentManager().beginTransaction(),
                 AuthorizationDialogFragment.class.getSimpleName());
@@ -274,10 +266,10 @@ public class AuthorizationDelegate {
             mCancelBtn = (FloatingActionButton)view.findViewById(R.id.btn_cancel);
             progressBar = (ProgressBar)view.findViewById(R.id.webview_progress);
             webView = (WebView)view.findViewById(R.id.authorization_webview);
-            webView.clearCache(true);
-            webView.clearHistory();
             final WebSettings webSettings = webView.getSettings();
             webSettings.setJavaScriptEnabled(true);
+            webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 4.1.1; Galaxy Nexus Build/JRO03C) " +
+                    "AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.166 Mobile Safari/535.19");
             webView.setWebViewClient(new MyWebViewClient());
             return view;
         }
@@ -291,7 +283,11 @@ public class AuthorizationDelegate {
                     dismiss();
                 }
             });
-            webView.loadUrl(authSupport.getTokenEndpoint());
+            if ( authSupport.isTwoStepOAuth() ) {
+                webView.loadUrl(authSupport.getAuthorizationCodeEndpoint());
+            } else {
+                webView.loadUrl(authSupport.getTokenEndpoint());
+            }
         }
 
         @Override
@@ -301,8 +297,14 @@ public class AuthorizationDelegate {
             if ( dialog != null ) {
                 final Point point = new Point();
                 dialog.getWindow().getWindowManager().getDefaultDisplay().getSize(point);
-                final int width = (int)(point.x * 0.90);
-                final int height = (int)(point.y * 0.90);
+                //Get the height of the toolbar.
+                final Toolbar toolbar = (Toolbar)((AppCompatActivity)context).findViewById(R.id.toolbar);
+                int toolbarHeight = 0;
+                if ( toolbar != null ) {
+                    toolbarHeight = toolbar.getMeasuredHeight();
+                }
+                final int width = point.x;
+                final int height = point.y - toolbarHeight;
                 dialog.getWindow().setLayout(width,height);
             }
         }
@@ -314,34 +316,130 @@ public class AuthorizationDelegate {
                 if (progressBar != null) {
                     progressBar.setVisibility(View.GONE);
                 }
-                super.onPageFinished(view, url);
+
+
+
             }
 
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                super.onPageStarted(view, url, favicon);
 
                 //if the desired page has started to load, dismiss the dialog
                 //and transfer control back to the parent activity.
                 if (progressBar != null) {
                     progressBar.setVisibility(View.VISIBLE);
                 }
-
-                if ( url.startsWith(authSupport.getRedirectUrl()) ) {
-                    final String uriPart = url.substring(url.indexOf(ACCESS_TOKEN));
-                    if ( !Strings.isNullOrEmpty(uriPart) ) {
-                        final AuthToken authToken = Utils.constructAuthToken(uriPart);
-                        Utils.writeTokenToDatabase(authToken,getContext());
-                        dismiss();
-                        authCallback.onAuthorizationSucceeded(authToken);
-                    }
-                }
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                view.loadUrl(url);
+                //If no error has occurred, load the url normally.
+                if ( /*Success*/ url.startsWith(authSupport.getSuccessRedirectionEndpoint())) {
+                    view.stopLoading();
+                    if ( !authSupport.isTwoStepOAuth() ) {
+                        final int accessTokenIndex = url.indexOf(ACCESS_TOKEN);
+                        if ( accessTokenIndex > 0 ) {
+                            //redirect url contains the access token.
+                            final String uriPart = url.substring(accessTokenIndex);
+                            if ( !Strings.isNullOrEmpty(uriPart) ) {
+                                final AuthToken authToken = Utils.constructAuthToken(uriPart);
+                                //Set the time the token was obtained.
+                                authToken.setTokenObtainedTime(System.currentTimeMillis());
+                                Utils.writeToPreferences(context,authToken,provider);
+                                dismiss();
+                                authCallback.onAuthorizationSucceeded(authToken);
+                            }
+                        }
+                    } else {
+                        //parse authorization code out of the uri.
+                        final String codePair = url.substring(url.indexOf(authSupport.getCodeField()));
+                        final String[] splitCodePair = codePair.split("=");
+                        final String authorizationCode = splitCodePair[1];
+                        postCodeForToken(authorizationCode);
+                    }
+                }
+
+                if ( /*Failure */ url.startsWith(authSupport.getErrorRedirectionEndpoint()) ) {
+                    view.stopLoading();
+                    dismiss();
+                } else {
+                    view.loadUrl(url);
+                }
                 return true;
+            }
+
+            /**
+             * Does the job of exchanging a token for a code.
+             * This applies only to auth providers with two step
+             * oauth process (mostly for web applications).
+             * @param code The authorization code obtained from step 1 (code parsed from
+             *             that appended to the redirect uri.)
+             */
+            void postCodeForToken(final String code) {
+                final ServiceCall serviceCall = new ServiceCall.ServiceCallBuilder()
+                        .setMethod(ServiceCall.EMethodType.POST)
+                        .setUrl(authSupport.getTokenEndpoint())
+                        .setParams(authSupport.getTokenParams(code))
+                        .setConnectionTimeOut(80000L)
+                        .setSocketTimeOut(80000L)
+                        .build();
+                progressBar.setVisibility(View.VISIBLE);
+                new AsyncTask<Void,Void,AuthToken>() {
+
+                    /**
+                     * Override this method to perform a computation on a background thread. The
+                     * specified parameters are the parameters passed to {@link #execute}
+                     * by the caller of this task.
+                     * <p/>
+                     * This method can call {@link #publishProgress} to publish updates
+                     * on the UI thread.
+                     *
+                     * @param params The parameters of the task.
+                     * @return A result, defined by the subclass of this task.
+                     * @see #onPreExecute()
+                     * @see #onPostExecute
+                     * @see #publishProgress
+                     */
+                    @Override
+                    protected AuthToken doInBackground(Void... params) {
+                        try {
+                            final Response response = serviceCall.executeRequest();
+                            final AuthToken authToken = response.getResponseAsType(AuthToken.class);
+                            //Print token details.
+                            Log.i(TAG,"Access token "+Utils.encrypt(authToken.getAccess_token()));
+                            Log.i(TAG,"Expires in "+authToken.getExpires_in());
+                            //Set token obtained time to current time.
+                            authToken.setTokenObtainedTime(System.currentTimeMillis());
+                            //Write auth token to storage.
+                            Utils.writeToPreferences(context, authToken, provider);
+                            return authToken;
+                        } catch ( Exception e) {
+                            Log.e(TAG,"Failed to obtain token in exchange for a code with message "+e.getMessage());
+                            return null;
+                        }
+                    }
+
+                    @Override
+                    protected void onPostExecute(AuthToken authToken) {
+                        super.onPostExecute(authToken);
+                        if ( progressBar.getVisibility() == View.VISIBLE ) {
+                            progressBar.setVisibility(View.GONE);
+                        }
+
+                        if (authToken != null) {
+                            progressBar.setVisibility(View.GONE);
+                            //Pass control back to the activity.
+                            if (authCallback != null) {
+                                authCallback.onAuthorizationSucceeded(authToken);
+                                dismiss();
+                            }
+                        } else {
+                            //Token failed. stay on this web page. Ask the user to refresh.
+                            Toast.makeText(context,"An unknown error occured while obtaining token. Please try again.",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    }
+                }.execute();
             }
         }
     }
@@ -362,9 +460,5 @@ public class AuthorizationDelegate {
     public interface TokenRefreshCallback {
         void onTokenRefreshed(final AuthToken authToken);
         void onTokenRefreshFailed(final ShopException shopException);
-    }
-
-    private void handleGoogleAuthentication() {
-        context.startActivity(new Intent(context,GoogleSignInActivity.class));
     }
 }

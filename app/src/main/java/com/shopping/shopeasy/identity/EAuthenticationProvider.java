@@ -5,11 +5,11 @@ import android.os.Parcelable;
 
 public enum EAuthenticationProvider implements Parcelable {
 
-    LINKEDIN("linkedin"),
-    MICROSOFT("microsoft"),
-    GOOGLE("google"),
+    LINKEDIN("LINKEDIN"),
+    MICROSOFT("MICROSOFT"),
+    GOOGLE("GOOGLE"),
     FACEBOOK("facebook"),
-    YAHOO("yahoo");
+    YAHOO("YAHOO");
 
     private String name;
     EAuthenticationProvider(String name) {

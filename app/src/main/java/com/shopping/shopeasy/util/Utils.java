@@ -2,6 +2,7 @@ package com.shopping.shopeasy.util;
 
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Build;
 import android.support.annotation.NonNull;
@@ -11,8 +12,10 @@ import android.util.Log;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
+import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.database.ShopDBHelper;
 import com.shopping.shopeasy.identity.AuthToken;
+import com.shopping.shopeasy.identity.EAuthenticationProvider;
 import com.shopping.shopeasy.network.HttpParam;
 
 import org.apache.commons.lang3.math.NumberUtils;
@@ -184,7 +187,27 @@ public class Utils {
         }).start();
     }
 
-    public static void writeToPreferences(final AuthToken authToken) {
+    /**
+     *
+     * @param context THe context to be used to obtain the Shared Preference.
+     * @param authToken The authorization token obtained from the web server.
+     * @param provider The authentication provider that was used to obtain the auth token.
+ *                 Will be utilized when the auth token needs to be verified in
+ *                 {@link AuthorizationDelegate#checkForAuthorization()} or
+ *                 {@link AuthorizationDelegate#checkForAuthorization(AuthorizationDelegate.OAuthCallback)}
+     */
+    public static void writeToPreferences(final @NonNull Context context,
+                                          final @NonNull AuthToken authToken,
+                                          final @NonNull EAuthenticationProvider provider) {
+        try {
+            final SharedPreferences preferences = context.getSharedPreferences(Constants.AUTH_PREFERENCE,0);
+            preferences.edit()
+                    .putString(Constants.AUTH_TOKEN,getSafeMapper().writeValueAsString(authToken))
+                    .putString(Constants.AUTH_PROVIDER,provider.toString())
+                    .apply();
 
+        } catch (Exception e) {
+            Log.e(TAG,"Failed to write auth token and provider to preferences");
+        }
     }
 }

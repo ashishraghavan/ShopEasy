@@ -108,6 +108,7 @@ public class ServiceCall {
             mUrl = new URL(URI.create(url).toString());
         } catch (Exception e) {
             Log.e(TAG, e.getLocalizedMessage());
+            throw new RuntimeException("Invalid url "+mUrl);
         }
     }
 
@@ -210,9 +211,12 @@ public class ServiceCall {
             mConn.setUseCaches(true);
         }
 
-        mConn.setConnectTimeout(Integer.parseInt(connectionTimeout.toString()));
-        mConn.setReadTimeout(Integer.parseInt(socketTimeout.toString()));
-
+        if ( connectionTimeout != null ) {
+            mConn.setConnectTimeout(Integer.parseInt(connectionTimeout.toString()));
+        }
+        if ( socketTimeout != null ) {
+            mConn.setReadTimeout(Integer.parseInt(socketTimeout.toString()));
+        }
 
         if(headers != null) {
             setHeaders(mConn);

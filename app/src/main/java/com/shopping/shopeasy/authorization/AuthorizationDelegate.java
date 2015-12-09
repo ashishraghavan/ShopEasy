@@ -149,7 +149,7 @@ public class AuthorizationDelegate {
                                     +refreshedToken.getAccess_token()+" does not match");
                             return refreshedToken;
                         }
-                    };
+                    }
 
                     Log.i(TAG,"Token is valid and will expire at "+authToken.getExpires_in());
                     return authToken;
@@ -164,6 +164,8 @@ public class AuthorizationDelegate {
                 super.onPostExecute(result);
                 if ( result != null && !Strings.isNullOrEmpty(result.getAccess_token())) {
                     //Token is valid.
+                    //Update the shared preferences with this token.
+                    Utils.writeToPreferences(context,result,provider);
                     oAuthCallback.onAuthorizationSucceeded(result);
                 } else {
                     oAuthCallback.onAuthorizationFailed(new ShopException.

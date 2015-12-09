@@ -8,7 +8,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
-import com.shopping.shopeasy.authorization.ValidatedToken;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.network.HttpParam;
 import com.shopping.shopeasy.network.Response;
@@ -19,6 +18,7 @@ import com.shopping.shopeasy.util.Utils;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * https://accounts.google.com/o/oauth2/v2/auth?
@@ -42,11 +42,13 @@ public class GoogleAuthSupport extends AuthSupport {
     private static final String client_secret = "m0IhRH_O6XxeJKFUJYORaVJW";
     private static final String access_type = "offline";
     private static final String grant_type = "authorization_code";
+
     private static final String TAG = GoogleAuthSupport.class.getSimpleName();
 
     private static final String CODE_ENDPOINT = "https://accounts.google.com/o/oauth2/auth";
     private static final String TOKEN_ENDPOINT = "https://accounts.google.com/o/oauth2/token";
     private static final String TOKEN_VERIFICATION_ENDPOINT = "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=%s";
+    private static final String TOKEN_REFRESH_ENDPOINT = "https://www.googleapis.com/oauth2/v4/token";
 
     private static final String SCOPE = "scope";
     private static final String REDIRECT_URI = "redirect_uri";
@@ -57,6 +59,7 @@ public class GoogleAuthSupport extends AuthSupport {
     private static final String ACCESS_TYPE = "access_type";
     private static final String CODE = "code";
     private static final String GRANT_TYPE = "grant_type";
+    private static final String REFRESH_TOKEN = "refresh_token";
 
     private static final List<String> fieldList = ImmutableList.of(SCOPE,
             REDIRECT_URI, RESPONSE_TYPE, CLIENT_ID,CLIENT_SECRET,PROMPT,ACCESS_TYPE,CODE,GRANT_TYPE);
@@ -223,10 +226,18 @@ public class GoogleAuthSupport extends AuthSupport {
                 .build();
         try {
             final Response response = serviceCall.executeRequest();
-            final ValidatedToken validatedToken = response.getResponseAsType(ValidatedToken.class);
-            Log.i(TAG,validatedToken.getExp());
-            Log.i(TAG,validatedToken.getEmail());
-            Log.i(TAG,validatedToken.getExpires_in());
+            final Map validatedToken = response.getResponseAsType(Map.class);
+            //validate there is no error.
+            if ( validatedToken.get("error_description") != null ) {
+                //This token is invalid.
+                throw new ShopException.ShopExceptionBuilder()
+                        .errorType(ShopException.ErrorType.INVALID_TOKEN)
+                        .message("Invalid/expired token.")
+                        .build();
+            }
+            Log.i(TAG,validatedToken.get("email").toString());
+            Log.i(TAG,validatedToken.get("expires_in").toString());
+            Log.i(TAG,validatedToken.get("scope").toString());
         } catch (Exception e) {
             Log.e(TAG,e.getLocalizedMessage(),e);
             throw new ShopException.ShopExceptionBuilder()
@@ -279,11 +290,32 @@ public class GoogleAuthSupport extends AuthSupport {
      *
      * @param authToken The token that needs to be refreshed
      * @return {@link AuthToken} with the modified access_token value
-     * and the expires information.
+     * and the expires information. Should be not called from the main
+     * thread.
      */
     @Override
     public AuthToken refreshToken(@NonNull AuthToken authToken) {
-        return null;
+
+        final List<HttpParam> httpParamList = ImmutableList.of(
+                new HttpParam(REFRESH_TOKEN, authToken.getRefresh_token()),
+                new HttpParam(CLIENT_ID, client_id),
+                new HttpParam(CLIENT_SECRET, client_secret),
+                new HttpParam(GRANT_TYPE, "refresh_token"));
+
+        final ServiceCall serviceCall = new ServiceCall.ServiceCallBuilder()
+                .setUrl(TOKEN_REFRESH_ENDPOINT)
+                .setMethod(ServiceCall.EMethodType.POST)
+                .setParams(httpParamList)
+                .overrideCache(true)
+                .shouldLog(true)
+                .build();
+        try {
+            final Response response = serviceCall.executeRequest();
+            return response.getResponseAsType(AuthToken.class);
+        } catch (Exception e) {
+            Log.e(TAG,"Failed to obtain refresh token with message "+e.getLocalizedMessage(),e);
+            return authToken;
+        }
     }
 
     @Override

@@ -6,6 +6,7 @@ import android.support.annotation.NonNull;
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.network.HttpParam;
+import com.shopping.shopeasy.network.ServiceCall;
 import com.shopping.shopeasy.util.ShopException;
 
 import java.util.List;
@@ -43,6 +44,16 @@ public abstract class AuthSupport implements Parcelable {
      * @return The token endpoint.
      */
     public abstract String getTokenEndpoint();
+
+    /**
+     * All providers don't have a POST method to obtain the token
+     * by passing in code as a body paramter. This method returns
+     * if a provider obtains an access token by the GET or POST
+     * method
+     * @return The method type. Possible values are {@link ServiceCall.EMethodType#GET}
+     * or {@link ServiceCall.EMethodType#POST}.
+     */
+    public abstract ServiceCall.EMethodType getTokenMethod();
 
     /**
      * Is read for two step auth providers.

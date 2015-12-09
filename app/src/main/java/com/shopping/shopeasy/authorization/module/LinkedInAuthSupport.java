@@ -6,6 +6,7 @@ import android.support.annotation.NonNull;
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.network.HttpParam;
+import com.shopping.shopeasy.network.ServiceCall;
 import com.shopping.shopeasy.util.ShopException;
 
 import java.util.List;
@@ -78,6 +79,20 @@ public class LinkedInAuthSupport extends AuthSupport {
     @Override
     public String getTokenEndpoint() {
         return null;
+    }
+
+    /**
+     * All providers don't have a POST method to obtain the token
+     * by passing in code as a body paramter. This method returns
+     * if a provider obtains an access token by the GET or POST
+     * method
+     *
+     * @return The method type. Possible values are {@link ServiceCall.EMethodType#GET}
+     * or {@link ServiceCall.EMethodType#POST}.
+     */
+    @Override
+    public ServiceCall.EMethodType getTokenMethod() {
+        return ServiceCall.EMethodType.POST;
     }
 
     /**

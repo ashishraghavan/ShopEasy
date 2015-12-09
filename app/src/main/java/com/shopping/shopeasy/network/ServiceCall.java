@@ -107,7 +107,7 @@ public class ServiceCall {
         try {
             mUrl = new URL(URI.create(url).toString());
         } catch (Exception e) {
-            Log.e(TAG, e.getLocalizedMessage());
+            Log.e(TAG, e.getLocalizedMessage(),e);
             throw new RuntimeException("Invalid url "+mUrl);
         }
     }

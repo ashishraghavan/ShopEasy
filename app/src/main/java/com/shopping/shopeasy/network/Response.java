@@ -44,6 +44,10 @@ public class Response {
         initialize(ResponseType.INPUTSTREAM);
     }
 
+    public Object getConvertedEntity() {
+        return convertedEntity;
+    }
+
     public HttpResponse getHttpResponse() {
         return httpResponse;
     }

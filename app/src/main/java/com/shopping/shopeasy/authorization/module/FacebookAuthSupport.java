@@ -2,13 +2,21 @@ package com.shopping.shopeasy.authorization.module;
 
 import android.os.Parcel;
 import android.support.annotation.NonNull;
+import android.util.Log;
 
+import com.google.common.collect.ImmutableList;
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.network.HttpParam;
+import com.shopping.shopeasy.network.Response;
+import com.shopping.shopeasy.network.ServiceCall;
 import com.shopping.shopeasy.util.ShopException;
 
+import junit.framework.Assert;
+
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Facebook support class.
@@ -23,6 +31,46 @@ import java.util.List;
  */
 public class FacebookAuthSupport extends AuthSupport {
 
+    private static final String AUTHORIZATION_CODE_ENDPOINT = "https://www.facebook.com/dialog/oauth?" +
+            "client_id=%s" +
+            "&redirect_uri=%s" +
+            "&response_type=%s";
+    //&code=%s is also required, will be done in delegate class.
+    private static final String TOKEN_ENDPOINT = "https://graph.facebook.com/v2.3/oauth/access_token?" +
+            "client_id=%s&redirect_uri=%s&client_secret=%s";
+
+    // The input token is the token to be inspected, whereas
+    private static final String TOKEN_VALIDATION_ENDPOINT = "https://graph.facebook.com/debug_token?" +
+            "input_token=%s" +
+            "&access_token=%s";
+
+    private static final String ERROR_REDIRECTION_ENDPOINT = "https://www.facebook.com/connect/login_success.html?" +
+            "error_reason=%s" +
+            "&error=%s" +
+            "&error_description=%s";
+
+    private static final String TAG = FacebookAuthSupport.class.getSimpleName();
+
+    //Facebook requires us to generate an app access token to validate a previously acquired token.
+    private static final String APP_ACCESS_TOKEN_ENDPOINT = "https://graph.facebook.com/oauth/access_token?" +
+            "client_id=%s" +
+            "&client_secret=%s" +
+            "&grant_type=client_credentials";
+
+    private static final String CLIENT_ID = "client_id";
+    private static final String REDIRECT_URI = "redirect_uri";
+    private static final String RESPONSE_TYPE = "response_type";
+    private static final String CODE = "code";
+    private static final String GRANTED_SCOPES = "granted_scopes";
+    private static final String SCOPE = "scope";
+
+    private static final String client_id = "963307897090232";
+    private static final String client_secret = "5b406fcf65e4b7732b3c0cf62f02d03f";
+    private static final String response_type = "code";
+    private static final String redirect_uri = "https://www.facebook.com/connect/login_success.html";
+
+    private static final List<String> fieldList = ImmutableList.of(CLIENT_ID,REDIRECT_URI,
+            RESPONSE_TYPE,CODE,GRANTED_SCOPES,SCOPE);
     /**
      * A boolean flat indicating if a subclass requires a two step
      * process to get the authorization token.
@@ -31,7 +79,7 @@ public class FacebookAuthSupport extends AuthSupport {
      */
     @Override
     public boolean isTwoStepOAuth() {
-        return false;
+        return true;
     }
 
     /**
@@ -43,7 +91,7 @@ public class FacebookAuthSupport extends AuthSupport {
      */
     @Override
     public String getCodeField() {
-        return null;
+        return CODE;
     }
 
     /**
@@ -58,12 +106,26 @@ public class FacebookAuthSupport extends AuthSupport {
      */
     @Override
     public String getAuthorizationCodeEndpoint() {
-        return null;
+        return String.format(AUTHORIZATION_CODE_ENDPOINT,client_id,redirect_uri,response_type);
     }
 
     @Override
     public String getTokenEndpoint() {
-        return null;
+        return String.format(TOKEN_ENDPOINT,client_id,redirect_uri,client_secret);
+    }
+
+    /**
+     * All providers don't have a POST method to obtain the token
+     * by passing in code as a body paramter. This method returns
+     * if a provider obtains an access token by the GET or POST
+     * method
+     *
+     * @return The method type. Possible values are {@link ServiceCall.EMethodType#GET}
+     * or {@link ServiceCall.EMethodType#POST}.
+     */
+    @Override
+    public ServiceCall.EMethodType getTokenMethod() {
+        return ServiceCall.EMethodType.GET;
     }
 
     /**
@@ -83,13 +145,15 @@ public class FacebookAuthSupport extends AuthSupport {
     /**
      * Is read for two step auth providers where a list of
      * {@link HttpParam} is used instead of a byte array.
-     *
+     * Facebook uses a GET method to obtain access token.
+     * This method should return null or an empty List
      * @param code
      * @return
      */
     @Override
+    @SuppressWarnings("unchecked")
     public List<HttpParam> getTokenParams(String code) {
-        return null;
+        return Collections.EMPTY_LIST;
     }
 
     @Override
@@ -114,7 +178,7 @@ public class FacebookAuthSupport extends AuthSupport {
 
     @Override
     public String getRedirectUrl() {
-        return null;
+        return REDIRECT_URI;
     }
 
     @Override
@@ -126,11 +190,65 @@ public class FacebookAuthSupport extends AuthSupport {
      * @param authToken                 The auth token that was obtained when either the user authorized first
      *                                  or subsequent token verification calls.
      * @param tokenVerificationCallback The callback to be called once the token verification
+     *
+     * {
+            "data": {
+                "app_id": 138483919580948,
+                "application": "Social Cafe",
+                "expires_at": 1352419328,
+                "is_valid": true,
+                "issued_at": 1347235328,
+                "metadata": {
+                    "sso": "iphone-safari"
+                },
+                "scopes": [
+                    "email",
+                    "publish_actions"
+                ],
+                "user_id": 1207059
+            }
+        }
      */
     @Override
     public void verifyToken(@NonNull AuthToken authToken,
-                            AuthorizationDelegate.TokenVerificationCallback tokenVerificationCallback) {
+                            AuthorizationDelegate.TokenVerificationCallback tokenVerificationCallback)
+            throws ShopException {
+        try {
+            //Get the app user access token.
+            ServiceCall serviceCall = new ServiceCall.ServiceCallBuilder()
+                    .setMethod(ServiceCall.EMethodType.GET)
+                    .setUrl(String.format(APP_ACCESS_TOKEN_ENDPOINT,client_id,client_secret))
+                    .build();
 
+            final Response appAccessTokenResponse = serviceCall.executeRequest();
+            final String appAccessToken = (String)appAccessTokenResponse.getConvertedEntity();
+
+            //Use split to separate out the app_id|access_token
+            final String[] appAccTokenArray = appAccessToken.split("=");
+            //Encode the pipe character (|).
+
+            serviceCall = new ServiceCall.ServiceCallBuilder()
+                    .setMethod(ServiceCall.EMethodType.GET)
+                    .setUrl(String.format(TOKEN_VALIDATION_ENDPOINT,authToken.getAccess_token(),appAccTokenArray[1].replace("|", "%7C")))
+                    .overrideCache(true)
+                    .build();
+
+            final Response tokenValidationResponse = serviceCall.executeRequest();
+            final Map validationResponseMap = tokenValidationResponse.getResponseAsType(Map.class);
+            final Map dataMap = (Map)validationResponseMap.get("data");
+            final String userId = dataMap.get("user_id").toString();
+            final boolean isValid = Boolean.parseBoolean(dataMap.get("is_valid").toString());
+            final String appId = dataMap.get("app_id").toString();
+            Assert.assertNotNull(userId);
+            Assert.assertTrue(isValid);
+            Assert.assertNotNull(appId);
+        } catch ( Exception e) {
+            Log.e(TAG,"Token verification failed with message "+e.getLocalizedMessage(),e);
+            throw new ShopException.ShopExceptionBuilder()
+                    .errorType(ShopException.ErrorType.INVALID_TOKEN)
+                    .message("Invalid/expired token.")
+                    .build();
+        }
     }
 
     /**
@@ -138,10 +256,18 @@ public class FacebookAuthSupport extends AuthSupport {
      *
      * @param authToken
      * @throws ShopException
+     *
+     * https://graph.facebook.com/endpoint?key=value&access_token=app_secret
      */
     @Override
     public boolean verifyToken(@NonNull AuthToken authToken) {
-        return true;
+        try {
+            verifyToken(authToken,null);
+            return true;
+        } catch (ShopException e) {
+            Log.i(TAG, "Token verification failed with message " + e.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -171,7 +297,7 @@ public class FacebookAuthSupport extends AuthSupport {
 
     @Override
     public String getSuccessRedirectionEndpoint() {
-        return null;
+        return redirect_uri;
     }
 
     @Override

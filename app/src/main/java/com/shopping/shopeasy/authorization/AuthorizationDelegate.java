@@ -318,9 +318,6 @@ public class AuthorizationDelegate {
                 if (progressBar != null) {
                     progressBar.setVisibility(View.GONE);
                 }
-
-
-
             }
 
             @Override
@@ -361,7 +358,8 @@ public class AuthorizationDelegate {
                     }
                 }
 
-                if ( /*Failure */ url.startsWith(authSupport.getErrorRedirectionEndpoint()) ) {
+                if ( /*Failure */ authSupport.getErrorRedirectionEndpoint() != null &&
+                        url.startsWith(authSupport.getErrorRedirectionEndpoint()) ) {
                     view.stopLoading();
                     dismiss();
                 } else {
@@ -379,8 +377,9 @@ public class AuthorizationDelegate {
              */
             void postCodeForToken(final String code) {
                 final ServiceCall serviceCall = new ServiceCall.ServiceCallBuilder()
-                        .setMethod(ServiceCall.EMethodType.POST)
-                        .setUrl(authSupport.getTokenEndpoint())
+                        .setMethod(authSupport.getTokenMethod())
+                        .setUrl(authSupport.getTokenMethod() == ServiceCall.EMethodType.GET ?
+                                authSupport.getTokenEndpoint() + "&code="+code : authSupport.getTokenEndpoint())
                         .setParams(authSupport.getTokenParams(code))
                         .setConnectionTimeOut(80000L)
                         .setSocketTimeOut(80000L)

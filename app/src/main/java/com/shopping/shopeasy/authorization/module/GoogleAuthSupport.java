@@ -132,6 +132,20 @@ public class GoogleAuthSupport extends AuthSupport {
     }
 
     /**
+     * All providers don't have a POST method to obtain the token
+     * by passing in code as a body paramter. This method returns
+     * if a provider obtains an access token by the GET or POST
+     * method
+     *
+     * @return The method type. Possible values are {@link ServiceCall.EMethodType#GET}
+     * or {@link ServiceCall.EMethodType#POST}.
+     */
+    @Override
+    public ServiceCall.EMethodType getTokenMethod() {
+        return ServiceCall.EMethodType.POST;
+    }
+
+    /**
      * Is read for two step auth providers.
      * Since we would be calling an oauth token endpoint using
      * POST call, the webview needs the post parameters in a

@@ -8,7 +8,7 @@ public enum EAuthenticationProvider implements Parcelable {
     LINKEDIN("LINKEDIN"),
     MICROSOFT("MICROSOFT"),
     GOOGLE("GOOGLE"),
-    FACEBOOK("facebook"),
+    FACEBOOK("FACEBOOK"),
     YAHOO("YAHOO");
 
     private String name;

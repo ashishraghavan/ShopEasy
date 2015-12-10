@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".SplashActivity">
+
+    <android.support.v7.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary" />
+
+    <ProgressBar
+        android:id="@+id/authorization_progress"
+        android:layout_gravity="center"
+        android:layout_centerInParent="true"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <Button
+        android:id="@+id/retry_button"
+        android:layout_width="wrap_content"
+        android:layout_centerInParent="true"
+        android:textAllCaps="false"
+        android:visibility="gone"
+        android:text="@string/retry"
+        android:layout_height="wrap_content" />
+
+
+    <ScrollView
+        android:id="@+id/auth_provider_scroll_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/toolbar"
+        android:padding="@dimen/margin_medium"
+        android:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:orientation="vertical"
+            android:layout_height="wrap_content">
+
+            <ImageView
+                android:id="@+id/google_logo"
+                android:src="@drawable/btn_google_dark_normal"
+                android:layout_width="wrap_content"
+                android:adjustViewBounds="true"
+                android:layout_gravity="center_horizontal"
+                android:maxHeight="80dp"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/google_auth_desc"/>
+
+            <ImageView
+                android:id="@+id/linkedin_logo"
+                android:src="@drawable/linkedinlogo"
+                android:layout_marginTop="@dimen/margin_medium"
+                android:layout_width="wrap_content"
+                android:adjustViewBounds="true"
+                android:layout_gravity="center_horizontal"
+                android:maxHeight="80dp"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/linkedin_auth_desc"/>
+
+            <ImageView
+                android:id="@+id/microsoft_logo"
+                android:src="@drawable/msft_logo_png"
+                android:layout_width="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:adjustViewBounds="true"
+                android:layout_marginTop="@dimen/card_view_margin_top"
+                android:maxHeight="80dp"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/microsoft_auth_desc"/>
+
+            <ImageView
+                android:src="@drawable/fb_logo_blue"
+                android:id="@+id/fb_auth_logo"
+                android:layout_marginTop="@dimen/card_view_margin_top"
+                android:maxHeight="80dp"
+                android:adjustViewBounds="true"
+                android:layout_width="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/facebook_content_desc"/>
+        </LinearLayout>
+
+    </ScrollView>
+</RelativeLayout>

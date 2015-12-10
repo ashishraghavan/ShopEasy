@@ -4,6 +4,7 @@ import android.os.Parcel;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.identity.AuthToken;
@@ -43,6 +44,13 @@ public class FacebookAuthSupport extends AuthSupport {
     private static final String TOKEN_VALIDATION_ENDPOINT = "https://graph.facebook.com/debug_token?" +
             "input_token=%s" +
             "&access_token=%s";
+
+
+    private static final String TOKEN_REFRESH_ENDPOINT = "https://www.facebook.com/oauth/access_token?" +
+            "grant_type=fb_exchange_token" +
+            "&client_id=%s"+
+            "&client_secret=%s" +
+            "&fb_exchange_token=%s";
 
     private static final String ERROR_REDIRECTION_ENDPOINT = "https://www.facebook.com/connect/login_success.html?" +
             "error_reason=%s" +
@@ -163,7 +171,7 @@ public class FacebookAuthSupport extends AuthSupport {
 
     @Override
     public String getRefreshTokenEndpoint() {
-        return null;
+        return TOKEN_REFRESH_ENDPOINT;
     }
 
     @Override
@@ -289,10 +297,30 @@ public class FacebookAuthSupport extends AuthSupport {
      * @param authToken The token that needs to be refreshed
      * @return {@link AuthToken} with the modified access_token value
      * and the expires information.
+     * At this point, we know that the token was invalid or expired.
+     * This will generate only a long lived token, not refresh it.
      */
     @Override
     public AuthToken refreshToken(@NonNull AuthToken authToken) {
-        return null;
+
+        final ServiceCall serviceCall = new ServiceCall.ServiceCallBuilder()
+                .setUrl(String.format(TOKEN_REFRESH_ENDPOINT,client_id,client_secret,authToken.getAccess_token()))
+                .overrideCache(true)
+                .shouldLog(true)
+                .setMethod(ServiceCall.EMethodType.GET)
+                .build();
+
+        try {
+            final Response serviceResponse = serviceCall.executeRequest();
+            final AuthToken refreshedToken = serviceResponse.getResponseAsType(AuthToken.class);
+            if (Strings.isNullOrEmpty(refreshedToken.getAccess_token()) ) {
+                return authToken;
+            }
+            return refreshedToken;
+        } catch ( Exception e) {
+            Log.e(TAG,"Token refresh failed with message "+e.getMessage(),e);
+            return authToken;
+        }
     }
 
     @Override

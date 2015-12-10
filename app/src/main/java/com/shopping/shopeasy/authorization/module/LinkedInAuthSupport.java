@@ -38,6 +38,12 @@ import java.util.List;
  */
 public class LinkedInAuthSupport extends AuthSupport {
 
+    private static final String CODE = "code";
+    private static final String REDIRECT_URI = "redirect_uri";
+    private static final String STATE = "state";
+    private static final String CLIENT_ID = "client_id";
+    private static final String SCOPE = "scope";
+
     /**
      * A boolean flat indicating if a subclass requires a two step
      * process to get the authorization token.

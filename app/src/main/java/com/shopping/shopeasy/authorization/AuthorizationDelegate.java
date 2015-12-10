@@ -3,7 +3,6 @@ package com.shopping.shopeasy.authorization;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.os.AsyncTask;
@@ -34,11 +33,8 @@ import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.identity.EAuthenticationProvider;
 import com.shopping.shopeasy.network.Response;
 import com.shopping.shopeasy.network.ServiceCall;
-import com.shopping.shopeasy.util.Constants;
 import com.shopping.shopeasy.util.ShopException;
 import com.shopping.shopeasy.util.Utils;
-
-import java.util.Arrays;
 
 public class AuthorizationDelegate {
 
@@ -86,109 +82,10 @@ public class AuthorizationDelegate {
         return this.oAuthCallback;
     }
 
-    public void checkForAuthorization(final @NonNull OAuthCallback oAuthCallback) {
-        this.oAuthCallback = oAuthCallback;
-        //Do actual login.
-
-        new AsyncTask<Void,Void,AuthToken>() {
-
-            /**
-             * Override this method to perform a computation on a background thread. The
-             * specified parameters are the parameters passed to {@link #execute}
-             * by the caller of this task.
-             * <p/>
-             * This method can call {@link #publishProgress} to publish updates
-             * on the UI thread.
-             *
-             * @param params The parameters of the task.
-             * @return A result, defined by the subclass of this task.
-             * @see #onPreExecute()
-             * @see #onPostExecute
-             * @see #
-             *
-             * If the preference {@link Constants#AUTH_PREFERENCE} has a valid non-empty
-             * value, then the user has already authorized an application.
-             * Check if the token has expired. Depending on what the provider is,
-             * get the refresh token.
-             */
-            @Override
-            protected AuthToken doInBackground(Void... params) {
-
-                final SharedPreferences authPreferences = context.
-                        getSharedPreferences(Constants.AUTH_PREFERENCE, 0);
-                final String providerStr = authPreferences.getString(Constants.AUTH_PROVIDER, null);
-                final String tokenJSON = authPreferences.getString(Constants.AUTH_TOKEN,null);
-
-                if ( Strings.isNullOrEmpty(providerStr) ||
-                        Strings.isNullOrEmpty(tokenJSON) ) {
-                    Log.e(TAG,"Invalid or null token or provider.");
-                    return null;
-                }
-
-                try {
-                    final EAuthenticationProvider provider = EAuthenticationProvider.valueOf(providerStr);
-                    final AuthToken authToken = Utils.getSafeMapper().readValue(tokenJSON, AuthToken.class);
-                    final AuthSupport authSupport;
-                    if ( provider == EAuthenticationProvider.GOOGLE) {
-                        authSupport = new GoogleAuthSupport();
-                    } else if ( provider == EAuthenticationProvider.FACEBOOK) {
-                        authSupport = new FacebookAuthSupport();
-                    } else if ( provider == EAuthenticationProvider.LINKEDIN) {
-                        authSupport = new LinkedInAuthSupport();
-                    } else {
-                        Log.e(TAG,"Invalid value of auth provider. " +
-                                "Must be one of ["+ Arrays.asList(EAuthenticationProvider.values())+"]");
-                        return null;
-                    }
-                    if (!authSupport.verifyToken(authToken)) {
-                        //Token verification failed. Refresh this token.
-                        final AuthToken refreshedToken = authSupport.refreshToken(authToken);
-                        //Just be sure, the original token and the refreshed token won't match.
-                        if ( !authToken.getAccess_token().equalsIgnoreCase(refreshedToken.getAccess_token())) {
-                            Log.d(TAG,"Original - "+authToken.getAccess_token()+" and refreshed token - "
-                                    +refreshedToken.getAccess_token()+" does not match");
-                            return refreshedToken;
-                        }
-                    }
-
-                    Log.i(TAG,"Token is valid and will expire at "+authToken.getExpires_in());
-                    return authToken;
-                } catch (Exception e) {
-                    Log.e(TAG,"Invalid/null auth token from token verification call");
-                    return null;
-                }
-            }
-
-            @Override
-            protected void onPostExecute(AuthToken result) {
-                super.onPostExecute(result);
-                if ( result != null && !Strings.isNullOrEmpty(result.getAccess_token())) {
-                    //Token is valid.
-                    //Update the shared preferences with this token.
-                    Utils.writeToPreferences(context,result,provider);
-                    oAuthCallback.onAuthorizationSucceeded(result);
-                } else {
-                    oAuthCallback.onAuthorizationFailed(new ShopException.
-                            ShopExceptionBuilder().message("Invalid/Expired or null token").
-                            errorType(ShopException.ErrorType.INVALID_TOKEN).build());
-                }
-            }
-
-        }.execute();
-    }
-
-    public void checkForAuthorization() {
-        if ( this.oAuthCallback == null ) {
-            throw new IllegalStateException("Callback initialization error.Call registerOAuthCallback() before calling this method.");
-        }
-        checkForAuthorization(this.oAuthCallback);
-    }
-
-
     public void doAuthorize() {
         final Bundle bundle = new Bundle();
         bundle.putParcelable(AuthorizationDialogFragment.AUTH_SUPPORT,getAuthSupport());
-        bundle.putParcelable(AuthorizationDialogFragment.PROVIDER,getProvider());
+        bundle.putSerializable(AuthorizationDialogFragment.PROVIDER, getProvider());
         final AuthorizationDialogFragment authorizationDialogFragment = AuthorizationDialogFragment.newInstance(bundle);
         authorizationDialogFragment.show(((AppCompatActivity) context).getSupportFragmentManager().beginTransaction(),
                 AuthorizationDialogFragment.class.getSimpleName());
@@ -235,13 +132,13 @@ public class AuthorizationDelegate {
         public void onCreate(Bundle bundle) {
             super.onCreate(bundle);
             final Bundle bundledArguments = getArguments();
-            if ( bundledArguments == null || bundledArguments.getParcelable(PROVIDER) == null ||
+            if ( bundledArguments == null || bundledArguments.getSerializable(PROVIDER) == null ||
                     bundledArguments.getParcelable(AUTH_SUPPORT) == null ) {
                 throw new RuntimeException("Bundle needs to be non null and contain an instance of class extending "+AuthSupport.class.getSimpleName()+
                         " and a provider type");
             }
 
-            provider = bundledArguments.getParcelable(PROVIDER);
+            provider = (EAuthenticationProvider)bundledArguments.getSerializable(PROVIDER);
             authSupport = bundledArguments.getParcelable(AUTH_SUPPORT);
             setStyle(DialogFragment.STYLE_NORMAL, R.style.FullScreenDialogFragment);
         }
@@ -358,8 +255,7 @@ public class AuthorizationDelegate {
                     }
                 }
 
-                if ( /*Failure */ authSupport.getErrorRedirectionEndpoint() != null &&
-                        url.startsWith(authSupport.getErrorRedirectionEndpoint()) ) {
+                if ( /*Failure */ authSupport.getErrorRedirectionEndpoint() != null && url.startsWith(authSupport.getErrorRedirectionEndpoint()) ) {
                     view.stopLoading();
                     dismiss();
                 } else {
@@ -379,7 +275,7 @@ public class AuthorizationDelegate {
                 final ServiceCall serviceCall = new ServiceCall.ServiceCallBuilder()
                         .setMethod(authSupport.getTokenMethod())
                         .setUrl(authSupport.getTokenMethod() == ServiceCall.EMethodType.GET ?
-                                authSupport.getTokenEndpoint() + "&code="+code : authSupport.getTokenEndpoint())
+                                authSupport.getTokenEndpoint() + "&code=" + code : authSupport.getTokenEndpoint())
                         .setParams(authSupport.getTokenParams(code))
                         .setConnectionTimeOut(80000L)
                         .setSocketTimeOut(80000L)

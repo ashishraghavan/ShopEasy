@@ -1,153 +1,137 @@
 package com.shopping.shopeasy.activity;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ProgressBar;
-import android.widget.ScrollView;
-import android.widget.Toast;
+import android.util.Log;
 
+import com.google.common.base.Strings;
 import com.shopping.shopeasy.R;
-import com.shopping.shopeasy.authorization.AuthorizationDelegate;
+import com.shopping.shopeasy.authorization.module.AuthSupport;
+import com.shopping.shopeasy.authorization.module.FacebookAuthSupport;
+import com.shopping.shopeasy.authorization.module.GoogleAuthSupport;
+import com.shopping.shopeasy.authorization.module.LinkedInAuthSupport;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.identity.EAuthenticationProvider;
-import com.shopping.shopeasy.util.ShopException;
+import com.shopping.shopeasy.util.Constants;
+import com.shopping.shopeasy.util.Utils;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Arrays;
 
-public class SplashActivity extends AppCompatActivity implements AuthorizationDelegate.OAuthCallback,View.OnClickListener {
+public class SplashActivity extends AppCompatActivity {
 
-    private ProgressBar progressBar;
-    private AuthorizationDelegate authDelegate;
-    private ScrollView mAuthProviderView;
-    private Button mRetryBtn;
-    private final AtomicInteger tries = new AtomicInteger(0);
-    private boolean maxRetryReached = false;
-
+    private static final String TAG = SplashActivity.class.getSimpleName();
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
+        final SharedPreferences authPreferences = SplashActivity.this.
+                getSharedPreferences(Constants.AUTH_PREFERENCE, 0);
+        final String providerStr = authPreferences.getString(Constants.AUTH_PROVIDER, null);
+        final String tokenJSON = authPreferences.getString(Constants.AUTH_TOKEN,null);
 
-        //Check if authorization has already been finished for this application.
-        progressBar = (ProgressBar)findViewById(R.id.authorization_progress);
-        mAuthProviderView = (ScrollView)findViewById(R.id.auth_provider_scroll_view);
-        mRetryBtn = (Button)findViewById(R.id.retry_button);
-        findViewById(R.id.fb_auth_logo).setOnClickListener(this);
-        findViewById(R.id.microsoft_logo).setOnClickListener(this);
-        findViewById(R.id.google_logo).setOnClickListener(this);
-        findViewById(R.id.linkedin_logo).setOnClickListener(this);
-        authDelegate = AuthorizationDelegate.getInstance(this);
-        progressBar.setVisibility(View.VISIBLE);
-        //Try authorizing.
-        //Register the oauth callback
-        authDelegate.registerOAuthCallback(this);
-        authDelegate.checkForAuthorization();
-        //Set listener for retry button.
-        mRetryBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                tries.incrementAndGet();
-                if ( tries.intValue() == 1) {
-                    maxRetryReached = true;
+        if (Strings.isNullOrEmpty(providerStr) ||
+                Strings.isNullOrEmpty(tokenJSON)) {
+            Log.e(TAG, "Invalid or null token or provider.");
+            final Intent intent = new Intent(SplashActivity.this, AuthorizationActivity.class);
+            intent.setAction(Constants.ACTION_NO_AUTH_TOKEN);
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    startActivity(intent);
                 }
-                authDelegate.checkForAuthorization();
-            }
-        });
+            }, 3000);
+        } else {
+            new AsyncTokenTask(EAuthenticationProvider.valueOf(providerStr), tokenJSON)
+                    .execute();
+        }
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_splash, menu);
-        return true;
-    }
+    private class AsyncTokenTask extends AsyncTask<String,Integer,AuthToken> {
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
+        private EAuthenticationProvider provider;
+        private String tokenJSON;
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
+        public AsyncTokenTask(@NonNull final EAuthenticationProvider provider,
+                              @NonNull final String tokenJSON) {
+            this.provider = provider;
+            this.tokenJSON = tokenJSON;
         }
 
-        return super.onOptionsItemSelected(item);
-    }
+        /**
+         * Override this method to perform a computation on a background thread. The
+         * specified parameters are the parameters passed to {@link #execute}
+         * by the caller of this task.
+         * <p/>
+         * This method can call {@link #publishProgress} to publish updates
+         * on the UI thread.
+         *
+         * @param params The parameters of the task.
+         * @return A result, defined by the subclass of this task.
+         * @see #onPreExecute()
+         * @see #onPostExecute
+         * @see #publishProgress
+         */
+        @Override
+        protected AuthToken doInBackground(String... params) {
 
-
-    @Override
-    public void onAuthorizationSucceeded(AuthToken authToken) {
-        //TODO Do things when authorization succeeds. Check for validity of the auth token.
-        progressBar.setVisibility(View.GONE);
-        //Take the user to the Products activity.
-        final Intent intent = new Intent(this,ProductListingActivity.class);
-        startActivity(intent);
-    }
-
-    @Override
-    public void onAuthorizationFailed(ShopException shopException) {
-        //TODO Do things when authorization fails.
-        //Depending on what caused the failure, we show the Retry button
-        //For example, if its a network time out exception, we show the
-        //retry button. Otherwise, we show the list of providers
-        //with a toast message informing the user why the authorization
-        //failed and provide them with options to authorize with a
-        //different federated identity provider.
-        progressBar.setVisibility(View.GONE);
-        if ( shopException.getErrorType() == ShopException.ErrorType.NETWORK_TIMEOUT ) {
-            //Show the retry button.
-            //If pressed ok, increment the no of tries.
-            if ( maxRetryReached ) {
-                //Hide the retry button if visible
-                if ( mRetryBtn != null &&
-                        mRetryBtn.getVisibility() == View.VISIBLE ) {
-                    mRetryBtn.setVisibility(View.GONE);
-                    Toast.makeText(this,"Authorization Failed with provider. Please re-login again",
-                            Toast.LENGTH_LONG).show();
+            try {
+                final AuthToken authToken = Utils.getSafeMapper().readValue(tokenJSON, AuthToken.class);
+                //Give 25% to deserializing the value of auth token present in the preferences.
+                final AuthSupport authSupport;
+                if ( provider == EAuthenticationProvider.GOOGLE) {
+                    authSupport = new GoogleAuthSupport();
+                } else if ( provider == EAuthenticationProvider.FACEBOOK) {
+                    authSupport = new FacebookAuthSupport();
+                } else if ( provider == EAuthenticationProvider.LINKEDIN) {
+                    authSupport = new LinkedInAuthSupport();
+                } else {
+                    Log.e(TAG,"Invalid value of auth provider. " +
+                            "Must be one of ["+ Arrays.asList(EAuthenticationProvider.values())+"]");
+                    return null;
                 }
-            } else {
-                mRetryBtn.setVisibility(View.VISIBLE);
+
+                if (!authSupport.verifyToken(authToken)) {
+                    //Token verification failed. Refresh this token.
+                    final AuthToken refreshedToken = authSupport.refreshToken(authToken);
+                    //Just be sure, the original token and the refreshed token won't match.
+                    if ( !authToken.getAccess_token().equalsIgnoreCase(refreshedToken.getAccess_token())) {
+                        Log.d(TAG,"Original - "+authToken.getAccess_token()+" and refreshed token - "
+                                +refreshedToken.getAccess_token()+" does not match");
+                        Utils.writeToPreferences(SplashActivity.this, refreshedToken, provider);
+                        return refreshedToken;
+                    }
+                }
+
+                Log.i(TAG,"Token is valid and will expire at "+authToken.getExpires_in());
+                return authToken;
+            } catch (Exception e) {
+                Log.e(TAG,"Invalid/null auth token from token verification call with message "+e.getMessage(),e);
+                return null;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(AuthToken authToken) {
+            super.onPostExecute(authToken);
+
+            if ( authToken == null || Strings.isNullOrEmpty(authToken.getAccess_token())) {
+                //Token refresh or verification for current provider failed.
+                final Intent expiredTokenIntent = new Intent(SplashActivity.this,AuthorizationActivity.class);
+                /** Set action as {@link Constants#ACTION_EXPIRED_AUTH_TOKEN} and start {@link AuthorizationActivity}*/
+                expiredTokenIntent.setAction(Constants.ACTION_EXPIRED_AUTH_TOKEN);
+                expiredTokenIntent.putExtra(Constants.AUTH_PROVIDER, provider);
+                startActivity(expiredTokenIntent);
                 return;
             }
-        }
-        mAuthProviderView.setVisibility(View.VISIBLE);
-    }
 
-
-    /**
-     * Called when a view has been clicked.
-     *
-     * @param v The view that was clicked.
-     */
-    @Override
-    public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.google_logo:
-                authDelegate.setProvider(EAuthenticationProvider.GOOGLE);
-                break;
-            case R.id.microsoft_logo:
-                authDelegate.setProvider(EAuthenticationProvider.MICROSOFT);
-                break;
-            case R.id.linkedin_logo:
-                authDelegate.setProvider(EAuthenticationProvider.LINKEDIN);
-                break;
-            case R.id.fb_auth_logo:
-                authDelegate.setProvider(EAuthenticationProvider.FACEBOOK);
-                break;
-            default:
-                throw new RuntimeException("Unexpected click event on authorization logo detected.");
+            //Start the product listing activity
+            final Intent productListingIntent = new Intent(SplashActivity.this,ProductListingActivity.class);
+            startActivity(productListingIntent);
         }
-        authDelegate.doAuthorize();
     }
 }

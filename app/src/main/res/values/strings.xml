@@ -76,4 +76,5 @@
     <string name="title_activity_product_listing">ProductListingActivity</string>
     <string name="yahoo_content_desc">Yahoo authorization desc</string>
     <string name="title_activity_google_sign_in">GoogleSignInActivity</string>
+    <string name="title_activity_splash">SplashActivity</string>
 </resources>

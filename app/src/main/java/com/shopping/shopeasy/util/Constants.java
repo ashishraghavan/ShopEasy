@@ -11,5 +11,9 @@ public class Constants {
     public static final String AUTH_PROVIDER = "auth_provider";
     /*The JSON format of the auth token class*/
     public static final String AUTH_TOKEN = "auth_token";
+    /*Action when no auth token is found from preferences*/
+    public static final String ACTION_NO_AUTH_TOKEN = "action_no_auth_token";
+    /*Action when auth token is found but token has expired.*/
+    public static final String ACTION_EXPIRED_AUTH_TOKEN = "action_expired_auth_token";
 
 }

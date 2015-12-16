@@ -1,7 +1,10 @@
 package com.shopping.shopeasy.util;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Build;
@@ -11,18 +14,25 @@ import android.util.Log;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.database.ShopDBHelper;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.identity.EAuthenticationProvider;
 import com.shopping.shopeasy.network.HttpParam;
+import com.shopping.shopeasy.network.Response;
+import com.shopping.shopeasy.network.ServiceCall;
+import com.shopping.shopeasy.receiver.TokenAlarmReceiver;
+
+import junit.framework.Assert;
 
 import org.apache.commons.lang3.math.NumberUtils;
 
 import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -35,6 +45,7 @@ public class Utils {
     private static final String TAG = Utils.class.getSimpleName();
     public static final String UTF8 = "utf-8";
     private static final char[] secretString = Constants.SECRET.toCharArray();
+    public static final Set<String> specialCharacters = ImmutableSet.of(".", "-", "*", "_");
     public static final ObjectMapper safeMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES,false)
             .configure(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES,false)
             .configure(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS,false)
@@ -193,8 +204,7 @@ public class Utils {
      * @param authToken The authorization token obtained from the web server.
      * @param provider The authentication provider that was used to obtain the auth token.
  *                 Will be utilized when the auth token needs to be verified in
- *                 {@link AuthorizationDelegate#checkForAuthorization()} or
- *                 {@link AuthorizationDelegate#checkForAuthorization(AuthorizationDelegate.OAuthCallback)}
+ *
      */
     public static void writeToPreferences(final @NonNull Context context,
                                           final @NonNull AuthToken authToken,
@@ -208,6 +218,44 @@ public class Utils {
 
         } catch (Exception e) {
             Log.e(TAG,"Failed to write auth token and provider to preferences");
+        }
+    }
+
+    public static void setAlarmForPreferences(final @NonNull Context context,
+                                              final @NonNull AuthToken authToken,
+                                              final @NonNull EAuthenticationProvider provider) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        //Set pending intent for the TokenRefreshReciver class.
+        Intent tokenrefreshIntent = new Intent(context, TokenAlarmReceiver.class);
+        tokenrefreshIntent.putExtra(Constants.AUTH_TOKEN, authToken);
+        tokenrefreshIntent.putExtra(Constants.AUTH_PROVIDER, provider);
+        //Set an action for this intent so that we can cancel it later if needed.
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 1, tokenrefreshIntent,
+                PendingIntent.FLAG_CANCEL_CURRENT);
+        final Long expiresInTime  = authToken.getExpires_in();
+        alarmManager.set(AlarmManager.RTC_WAKEUP, (System.currentTimeMillis() + (expiresInTime * 10^3)) - 120000, pendingIntent);
+    }
+
+    public interface ConnectionCallback {
+        void onConnectionSucceeded();
+        void onConnectionFailed(final Exception exception);
+    }
+
+    public static void validateNetworkConnection(final ConnectionCallback connectionCallback) {
+        final ServiceCall networkValidationCall = new ServiceCall.ServiceCallBuilder()
+                .setUrl(Constants.NETWORK_VALIDATION_URL)
+                .setMethod(ServiceCall.EMethodType.GET)
+                .overrideCache(true)
+                .shouldLog(true)
+                .build();
+        try {
+            final Response networkValidationResponse = networkValidationCall.executeRequest();
+            final Object emptyString = networkValidationResponse.getConvertedEntity();
+            Assert.assertTrue(Strings.isNullOrEmpty(emptyString.toString()));
+            connectionCallback.onConnectionSucceeded();
+        } catch ( Exception e) {
+            Log.e(TAG,"Network unavailable with message "+e.getMessage(),e);
+            connectionCallback.onConnectionFailed(e);
         }
     }
 }

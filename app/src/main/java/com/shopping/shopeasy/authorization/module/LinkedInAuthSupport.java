@@ -2,14 +2,25 @@ package com.shopping.shopeasy.authorization.module;
 
 import android.os.Parcel;
 import android.support.annotation.NonNull;
+import android.util.Log;
 
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.shopping.shopeasy.authorization.AuthorizationDelegate;
 import com.shopping.shopeasy.identity.AuthToken;
 import com.shopping.shopeasy.network.HttpParam;
+import com.shopping.shopeasy.network.Response;
 import com.shopping.shopeasy.network.ServiceCall;
 import com.shopping.shopeasy.util.ShopException;
 
+import junit.framework.Assert;
+
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.http.message.BasicHeader;
+
 import java.util.List;
+import java.util.Map;
 
 /**
  * https://www.linkedin.com/uas/oauth2/authorization
@@ -40,9 +51,30 @@ public class LinkedInAuthSupport extends AuthSupport {
 
     private static final String CODE = "code";
     private static final String REDIRECT_URI = "redirect_uri";
-    private static final String STATE = "state";
     private static final String CLIENT_ID = "client_id";
-    private static final String SCOPE = "scope";
+    private static final String CLIENT_SECRET = "client_secret";
+    private static final String GRANT_TYPE = "grant_type";
+
+    private static final String redirect_uri = "https://linkedin.com/success";
+    private static final String client_id = "75zomdyjvbmlu2";
+    private static final String client_secret = "fuW3wTRpbm8YXlwA";
+    private static final String response_type = CODE;
+    private static final String grant_type = "authorization_code";
+    private static String state;
+
+    private static final String TAG = LinkedInAuthSupport.class.getSimpleName();
+
+    public static final String AUTHORIZATION_CODE_ENDPOINT = "https://www.linkedin.com/uas/oauth2/authorization?"
+            + "response_type="+ response_type
+            + "&client_id=%s"
+            + "&redirect_uri=%s"
+            + "&state=%s"
+            + "&scope=r_basicprofile";
+
+    public static final String TOKEN_ENDPOINT = "https://www.linkedin.com/uas/oauth2/accessToken";
+
+    public static final String TOKEN_VALIDATION_ENDPOINT = "https://api.linkedin.com/v1/people/~";
+    //".", "-", "*", and "_"
 
     /**
      * A boolean flat indicating if a subclass requires a two step
@@ -52,7 +84,7 @@ public class LinkedInAuthSupport extends AuthSupport {
      */
     @Override
     public boolean isTwoStepOAuth() {
-        return false;
+        return true;
     }
 
     /**
@@ -64,7 +96,7 @@ public class LinkedInAuthSupport extends AuthSupport {
      */
     @Override
     public String getCodeField() {
-        return null;
+        return CODE;
     }
 
     /**
@@ -79,12 +111,12 @@ public class LinkedInAuthSupport extends AuthSupport {
      */
     @Override
     public String getAuthorizationCodeEndpoint() {
-        return null;
+        return String.format(AUTHORIZATION_CODE_ENDPOINT,client_id,redirect_uri,getState());
     }
 
     @Override
     public String getTokenEndpoint() {
-        return null;
+        return TOKEN_ENDPOINT;
     }
 
     /**
@@ -118,13 +150,20 @@ public class LinkedInAuthSupport extends AuthSupport {
     /**
      * Is read for two step auth providers where a list of
      * {@link HttpParam} is used instead of a byte array.
-     *
+     * Escaping has to be performed on the code for the following
+     * The special characters ".", "-", "*", and "_".
      * @param code
      * @return
      */
     @Override
     public List<HttpParam> getTokenParams(String code) {
-        return null;
+        final List<HttpParam> httpParamList = Lists.newArrayList();
+        httpParamList.add(new HttpParam(CODE, code));
+        httpParamList.add(new HttpParam(CLIENT_ID,client_id));
+        httpParamList.add(new HttpParam(CLIENT_SECRET,client_secret));
+        httpParamList.add(new HttpParam(REDIRECT_URI,redirect_uri));
+        httpParamList.add(new HttpParam(GRANT_TYPE,grant_type));
+        return httpParamList;
     }
 
     @Override
@@ -154,7 +193,7 @@ public class LinkedInAuthSupport extends AuthSupport {
 
     @Override
     public String getTokenValidationEndpoint() {
-        return null;
+        return TOKEN_VALIDATION_ENDPOINT;
     }
 
     /**
@@ -172,10 +211,38 @@ public class LinkedInAuthSupport extends AuthSupport {
      *
      * @param authToken
      * @throws ShopException
+     *
+     * {
+        "firstName": "Ashish",
+        "headline": "J2EE/Android Engineer at Halosys Technologies Inc",
+        "id": "B5HTIdX1yA",
+        "lastName": "Raghavan",
+        "siteStandardProfileRequest": {"url": "https://www.linkedin.com/profile/view?id=82990649&authType=name&authToken=gs6x&trk=api*a4725851*s5042541*"}
+    }
      */
     @Override
     public boolean verifyToken(@NonNull AuthToken authToken) {
-        return true;
+        try {
+            final ServiceCall serviceCall = new ServiceCall.ServiceCallBuilder()
+                    .setMethod(ServiceCall.EMethodType.GET)
+                    .setUrl(TOKEN_VALIDATION_ENDPOINT)
+                    .setHeaderElements(ImmutableList.<BasicHeader>builder().
+                            add(new BasicHeader("x-li-format","json")).
+                            add(new BasicHeader("Authorization","Bearer "+authToken.getAccess_token())).build())
+                    .build();
+            final Response serviceCallResponse = serviceCall.executeRequest();
+            final Map tokenResponseMap = serviceCallResponse.getResponseAsType(Map.class);
+            final String id = tokenResponseMap.get("id").toString();
+            final String firstName = tokenResponseMap.get("firstName").toString();
+            final String lastName = tokenResponseMap.get("lastName").toString();
+            Assert.assertTrue( !Strings.isNullOrEmpty(id) &&
+                    !Strings.isNullOrEmpty(firstName) &&
+                    !Strings.isNullOrEmpty(lastName));
+            return true;
+        } catch ( Exception e) {
+            Log.e(TAG,"Token verification failed with message "+e.getMessage(),e);
+            return false;
+        }
     }
 
     /**
@@ -205,7 +272,7 @@ public class LinkedInAuthSupport extends AuthSupport {
 
     @Override
     public String getSuccessRedirectionEndpoint() {
-        return null;
+        return redirect_uri;
     }
 
     @Override
@@ -235,5 +302,13 @@ public class LinkedInAuthSupport extends AuthSupport {
     @Override
     public void writeToParcel(Parcel dest, int flags) {
 
+    }
+
+    private String getState() {
+        if ( state != null ) {
+            return state;
+        }
+        state = RandomStringUtils.randomAlphanumeric(15);
+        return state;
     }
 }

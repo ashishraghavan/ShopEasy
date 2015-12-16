@@ -22,6 +22,7 @@ import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -63,9 +64,10 @@ public class ServiceCall {
     private boolean shouldLog = true;
     //Below variable is responsible for hitting the api result from cache or force from network
     private boolean isOverrideCache;
+    private boolean shouldFollowRedirects;
     private Long connectionTimeout = 60000L;
     private Long socketTimeout = 60000L;
-    private final HttpResponseCache cache = HttpResponseCache.getInstalled();
+    private HttpResponseCache cache;
     private boolean isMultipartPost = false;
     private static final int maxStale = 60 * 60 * 24 * 28; // tolerate 4-weeks stale
 
@@ -73,6 +75,10 @@ public class ServiceCall {
     private static final String LINE_FEED = "\r\n";
     private static final String TWO_HYPHEN = "--";
     private static final int BUFFER_LENGTH = 8192;
+
+    /*For cases where the client does not want us to follow redirects, a list of URL's which
+    * the server used before reaching its final destination is provided in a list format.*/
+    private final LinkedList<String> urlLinkedList = new LinkedList<>();
 
     public ServiceCall(String url,
                        EMethodType method,
@@ -82,7 +88,8 @@ public class ServiceCall {
                        final Long connectionTimeout,
                        final Long socketTimeout,
                        boolean shouldLog,
-                       boolean isOverrideCache) {
+                       boolean isOverrideCache,
+                       boolean shouldFollowRedirects) {
 
         this.method = method;
         if(params!=null) {
@@ -96,6 +103,7 @@ public class ServiceCall {
         this.socketTimeout = socketTimeout;
         this.shouldLog = shouldLog;
         this.isOverrideCache = isOverrideCache;
+        this.shouldFollowRedirects = shouldFollowRedirects;
         if (method == EMethodType.POST && params != null ) {
             for (HttpParam httpParam : params) {
                 if (httpParam.isBinary()) {
@@ -104,8 +112,21 @@ public class ServiceCall {
                 }
             }
         }
+
+        try {
+            cache = HttpResponseCache.getInstalled();
+        } catch (NoClassDefFoundError e) {
+            Log.e(TAG,"Test being executed as unit test",e);
+            Log.e(TAG,"Cache not installed");
+        }
+
         try {
             mUrl = new URL(URI.create(url).toString());
+            //If its a GET request and params is not null or empty, append query params to the URL.
+            if ( this.method == EMethodType.GET && this.params != null && !this.params.isEmpty() ) {
+                final String _mUrl = mUrl + "?" + Utils.appendParams(this.params);
+                mUrl = new URL(URI.create(_mUrl).toString());
+            }
         } catch (Exception e) {
             Log.e(TAG, e.getLocalizedMessage(),e);
             throw new RuntimeException("Invalid url "+mUrl);
@@ -126,6 +147,7 @@ public class ServiceCall {
         private Long connectionTimeout;
         private Long socketTimeout;
         private boolean shouldLog;
+        private boolean shouldFollowRedirects;
         private boolean isOverrideCache;
 
         public ServiceCallBuilder() {}
@@ -175,6 +197,11 @@ public class ServiceCall {
             return this;
         }
 
+        public ServiceCallBuilder shouldFollowRedirects(final boolean shouldFollowRedirects) {
+            this.shouldFollowRedirects = shouldFollowRedirects;
+            return this;
+        }
+
         public ServiceCall build() {
             return new ServiceCall(this.mUrl,
                     this.method,
@@ -183,8 +210,13 @@ public class ServiceCall {
                     this.connectionTimeout,
                     this.socketTimeout,
                     shouldLog,
-                    isOverrideCache);
+                    isOverrideCache,
+                    shouldFollowRedirects);
         }
+    }
+
+    public LinkedList<String> getUrlLinkedList() {
+        return urlLinkedList;
     }
 
     @Override
@@ -249,6 +281,22 @@ public class ServiceCall {
 
         int responseCode = mConn.getResponseCode();
         final String out = getResponseAsString(mConn);
+        if ( !shouldFollowRedirects ) {
+            final String locationHeader = mConn.getHeaderField("Location");
+            final String _locationHeader = mConn.getHeaderField("location");
+            if ( !Strings.isNullOrEmpty(locationHeader) ||
+                    !Strings.isNullOrEmpty(_locationHeader)) {
+                if ( locationHeader == null ) {
+                    mUrl = new URL(URI.create(_locationHeader).toString());
+                    urlLinkedList.add(_locationHeader);
+                } else {
+                    mUrl = new URL((URI.create(locationHeader).toString()));
+                    urlLinkedList.add(locationHeader);
+                }
+                //Set this location header url as our next url.
+                executeRequest();
+            }
+        }
         protocolLog(mConn, responseCode, out);
         return new Response(out);
     }
@@ -302,8 +350,13 @@ public class ServiceCall {
             mConn.setUseCaches(true);
         }
 
-        mConn.setConnectTimeout(Integer.parseInt(connectionTimeout.toString()));
-        mConn.setReadTimeout(Integer.parseInt(socketTimeout.toString()));
+        if ( connectionTimeout != null ) {
+            mConn.setConnectTimeout(Integer.parseInt(connectionTimeout.toString()));
+        }
+
+        if ( socketTimeout != null ) {
+            mConn.setReadTimeout(Integer.parseInt(socketTimeout.toString()));
+        }
 
         mConn.setRequestMethod("GET");
         mConn.setDoInput(true);

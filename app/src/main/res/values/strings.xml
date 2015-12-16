@@ -77,4 +77,7 @@
     <string name="yahoo_content_desc">Yahoo authorization desc</string>
     <string name="title_activity_google_sign_in">GoogleSignInActivity</string>
     <string name="title_activity_splash">SplashActivity</string>
+    <string name="review_number">(%1$s)</string>
+    <string name="default_product_cost">%1$s%2$s</string>
+    <string name="product_image_desc">Product Image</string>
 </resources>

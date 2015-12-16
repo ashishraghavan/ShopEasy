@@ -15,5 +15,6 @@ public class Constants {
     public static final String ACTION_NO_AUTH_TOKEN = "action_no_auth_token";
     /*Action when auth token is found but token has expired.*/
     public static final String ACTION_EXPIRED_AUTH_TOKEN = "action_expired_auth_token";
-
+    /* Check network connection URL */
+    public static final String NETWORK_VALIDATION_URL = "http://connectivitycheck.android.com/generate_204";
 }

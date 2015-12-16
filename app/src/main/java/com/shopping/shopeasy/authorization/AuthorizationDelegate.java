@@ -251,7 +251,13 @@ public class AuthorizationDelegate {
                         final String codePair = url.substring(url.indexOf(authSupport.getCodeField()));
                         final String[] splitCodePair = codePair.split("=");
                         final String authorizationCode = splitCodePair[1];
-                        postCodeForToken(authorizationCode);
+                        //& is the token used for url paramter separation.
+                        //TODO Do this in a clean way!
+                        if ( authorizationCode.contains("&") ) {
+                            postCodeForToken(authorizationCode.substring(0,authorizationCode.indexOf("&")));
+                        } else {
+                            postCodeForToken(authorizationCode);
+                        }
                     }
                 }
 
@@ -263,6 +269,8 @@ public class AuthorizationDelegate {
                 }
                 return true;
             }
+
+
 
             /**
              * Does the job of exchanging a token for a code.
@@ -302,13 +310,20 @@ public class AuthorizationDelegate {
                         try {
                             final Response response = serviceCall.executeRequest();
                             final AuthToken authToken = response.getResponseAsType(AuthToken.class);
+                            if ( Strings.isNullOrEmpty(authToken.getAccess_token()) ) {
+                                Log.e(TAG,"Null access token on deserialized auth token from server response");
+                                return null;
+                            }
                             //Print token details.
                             Log.i(TAG,"Access token "+Utils.encrypt(authToken.getAccess_token()));
                             Log.i(TAG,"Expires in "+authToken.getExpires_in());
                             //Set token obtained time to current time.
                             authToken.setTokenObtainedTime(System.currentTimeMillis());
+                            //Set the code required to retrieve the token at a later time.
+                            authToken.setAuthorizationCode(code);
                             //Write auth token to storage.
                             Utils.writeToPreferences(context, authToken, provider);
+                            Utils.setAlarmForPreferences(context,authToken,provider);
                             return authToken;
                         } catch ( Exception e) {
                             Log.e(TAG,"Failed to obtain token in exchange for a code with message "+e.getMessage());

@@ -32,6 +32,7 @@ public class AuthToken implements Parcelable {
     private String token_type;
     private String refresh_token;
     private Map<String, Object> extras;
+    private String authorizationCode;
     private boolean expired;
 
     public AuthToken(){}
@@ -106,6 +107,14 @@ public class AuthToken implements Parcelable {
         return expired;
     }
 
+    public String getAuthorizationCode() {
+        return authorizationCode;
+    }
+
+    public void setAuthorizationCode(String authorizationCode) {
+        this.authorizationCode = authorizationCode;
+    }
+
     public static final Creator<AuthToken> CREATOR = new Creator<AuthToken>() {
         public AuthToken createFromParcel(Parcel pc) {
             return new AuthToken(pc);
@@ -142,6 +151,7 @@ public class AuthToken implements Parcelable {
         dest.writeString(refresh_token);
         dest.writeByte((byte)(expired ? 1 : 0));
         dest.writeMap(extras);
+        dest.writeString(authorizationCode);
     }
 
     public AuthToken(Parcel pc) {
@@ -155,6 +165,7 @@ public class AuthToken implements Parcelable {
             extras = Maps.newHashMap();
         }
         pc.readMap(extras, AuthToken.class.getClassLoader());
+        authorizationCode = pc.readString();
     }
 
 

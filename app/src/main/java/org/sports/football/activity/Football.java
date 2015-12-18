@@ -16,6 +16,8 @@ import org.sports.football.fragment.LeagueFragment;
 public class Football extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
+    private MenuItem checkedMenuItem = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -31,6 +33,10 @@ public class Football extends AppCompatActivity
 
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
+        final Menu menu = navigationView.getMenu();
+        final MenuItem menuItem = menu.findItem(R.id.leagues);
+        onNavigationItemSelected(menuItem);
+        navigationView.setCheckedItem(R.id.leagues);
     }
 
     @Override
@@ -71,21 +77,26 @@ public class Football extends AppCompatActivity
         // Handle navigation view item clicks here.
         int id = item.getItemId();
 
-        if (id == R.id.leagues) {
-            final LeagueFragment leagueFragment = LeagueFragment.newInstance();
-            getSupportFragmentManager().beginTransaction().
-                    replace(R.id.main_container,leagueFragment,LeagueFragment.class.getSimpleName())
-                    .commit();
-        } else if (id == R.id.nav_gallery) {
+        //Check if the menu item we are responding to is the same item as checked.
+        if ( checkedMenuItem == null ||
+                !(checkedMenuItem.equals(item) )) {
+            if (id == R.id.leagues) {
+                final LeagueFragment leagueFragment = LeagueFragment.newInstance();
+                getSupportFragmentManager().beginTransaction().
+                        replace(R.id.main_container,leagueFragment,LeagueFragment.class.getSimpleName())
+                        .commit();
+                checkedMenuItem = item;
+            } else if (id == R.id.nav_gallery) {
 
-        } else if (id == R.id.nav_slideshow) {
+            } else if (id == R.id.nav_slideshow) {
 
-        } else if (id == R.id.nav_manage) {
+            } else if (id == R.id.nav_manage) {
 
-        } else if (id == R.id.nav_share) {
+            } else if (id == R.id.nav_share) {
 
-        } else if (id == R.id.nav_send) {
+            } else if (id == R.id.nav_send) {
 
+            }
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);

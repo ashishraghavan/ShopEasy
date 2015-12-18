@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ShopEasy</string>
+    <string name="app_name">FootEasy</string>
     <string name="action_settings">Settings</string>
     <string name="title_activity_settings">Settings</string>
 
@@ -80,4 +80,15 @@
     <string name="review_number">(%1$s)</string>
     <string name="default_product_cost">%1$s%2$s</string>
     <string name="product_image_desc">Product Image</string>
+    <string name="title_activity_season_listing">SeasonListing</string>
+    <string name="title_activity_football">Football</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="leagues">Leagues</string>
+
+<!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="title_activity_league_detail">LeagueDetail</string>
+    <string name="section_format">Hello World from section: %1$d</string>
 </resources>

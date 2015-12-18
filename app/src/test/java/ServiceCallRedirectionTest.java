@@ -1,6 +1,6 @@
 import com.google.common.collect.ImmutableList;
-import com.shopping.shopeasy.network.Response;
-import com.shopping.shopeasy.network.ServiceCall;
+import org.sports.football.network.Response;
+import org.sports.football.network.ServiceCall;
 
 import org.apache.http.message.BasicHeader;
 import org.junit.Test;

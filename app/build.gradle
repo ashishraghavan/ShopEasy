@@ -78,8 +78,9 @@ dependencies {
     compile ('org.apache.httpcomponents:httpmime:4.1.2') {
         exclude module: 'commons-logging'
     }
-    compile ('org.apache.httpcomponents:httpclient:4.5') {
-        exclude module: 'commons-logging'
+
+    compile('com.astuetz:pagerslidingtabstrip:1.0.1') {
+        exclude module: 'support-v4'
     }
 
     compile 'com.nineoldandroids:library:2.4.0'

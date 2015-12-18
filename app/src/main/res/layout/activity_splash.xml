@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/twitter_blue"
-    tools:context="com.shopping.shopeasy.activity.SplashActivity">
+    tools:context="org.sports.football.activity.SplashActivity">
 
     <ImageView
         android:id="@+id/splash_shopping_bag"

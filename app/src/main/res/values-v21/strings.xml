@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="product_image_desc">Product Image</string>
+    <string name="app_name">FootEasy</string>
+    <string name="leagues">Leagues</string>
 </resources>
